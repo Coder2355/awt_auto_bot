@@ -12,7 +12,7 @@ bot = Client(
     bot_token=Config.BOT_TOKEN
 )
 
-# Pattern to extract anime details
+# Pattern to extract anime details from file name
 anime_pattern = re.compile(r"(?P<name>.+?)\s*[Ee]p(?:isode)?\s*(?P<episode>\d+)\s*.*?(?P<quality>\d+p)")
 
 # Handler for pictures sent to the bot for setting as thumbnail
@@ -27,8 +27,13 @@ async def set_thumbnail(client, message):
 async def auto_upload(client, message):
     # Extracting details from the file name
     file_name = message.video.file_name if message.video else message.document.file_name
+
+    # Debugging: Log the received file name
+    print(f"Received file: {file_name}")
+
+    # Try to match the pattern for anime details (name, episode, quality)
     match = anime_pattern.search(file_name)
-    
+
     if match:
         anime_name = match.group("name").strip()
         episode_num = match.group("episode")
@@ -40,7 +45,7 @@ async def auto_upload(client, message):
         # Custom caption with anime details
         caption = f"Anime : {anime_name}\nEpisode {episode_num} Added ✅\nQuality: {quality}\n"
         caption += "Enna quality venumo click pannunga\nFile varum ✅"
-        
+
         # Buttons for different quality options
         buttons = InlineKeyboardMarkup(
             [
@@ -48,7 +53,7 @@ async def auto_upload(client, message):
                  InlineKeyboardButton("1080p", callback_data="1080p")]
             ]
         )
-        
+
         # Send a status message that file forwarding is starting
         status_message = await message.reply_text("Forwarding file...")
 
@@ -57,22 +62,24 @@ async def auto_upload(client, message):
             thumb = Config.THUMBNAIL_PATH
         else:
             thumb = None
-        
+
         try:
             # Send the renamed file to the file store bot
             if message.video:
+                print(f"Forwarding video to file store bot with new name: {new_file_name}")
                 file_message = await client.send_video(
                     Config.FILE_STORE_BOT,
                     video=message.video.file_id,
                     caption=f"Stored: {new_file_name}",
-                    thumb=thumb  # Add thumbnail
+                    thumb=thumb  # Add thumbnail if exists
                 )
             else:
+                print(f"Forwarding document to file store bot with new name: {new_file_name}")
                 file_message = await client.send_document(
                     Config.FILE_STORE_BOT,
                     document=message.document.file_id,
                     caption=f"Stored: {new_file_name}",
-                    thumb=thumb  # Add thumbnail
+                    thumb=thumb  # Add thumbnail if exists
                 )
 
             # Update status message to indicate successful forwarding
@@ -92,7 +99,7 @@ async def auto_upload(client, message):
             # Update the status message to indicate upload is complete
             await status_message.edit_text("Upload complete.")
             print(f"Uploaded {anime_name} Episode {episode_num} to the target channel with link.")
-        
+
         except Exception as e:
             # Update the status message to indicate an error occurred
             await status_message.edit_text(f"Error occurred: {str(e)}")
