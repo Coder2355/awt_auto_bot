@@ -49,41 +49,57 @@ async def auto_upload(client, message):
             ]
         )
         
+        # Send a status message that file forwarding is starting
+        status_message = await message.reply_text("Forwarding file...")
+
         # Check if the thumbnail exists
         if os.path.exists(Config.THUMBNAIL_PATH):
             thumb = Config.THUMBNAIL_PATH
         else:
             thumb = None
         
-        # Send the renamed file to the file store bot
-        if message.video:
-            file_message = await client.send_video(
-                Config.FILE_STORE_BOT,
-                video=message.video.file_id,
-                caption=f"Stored: {new_file_name}",
-                thumb=thumb  # Add thumbnail
+        try:
+            # Send the renamed file to the file store bot
+            if message.video:
+                file_message = await client.send_video(
+                    Config.FILE_STORE_BOT,
+                    video=message.video.file_id,
+                    caption=f"Stored: {new_file_name}",
+                    thumb=thumb  # Add thumbnail
+                )
+            else:
+                file_message = await client.send_document(
+                    Config.FILE_STORE_BOT,
+                    document=message.document.file_id,
+                    caption=f"Stored: {new_file_name}",
+                    thumb=thumb  # Add thumbnail
+                )
+
+            # Update status message to indicate successful forwarding
+            await status_message.edit_text("File forwarded successfully! Uploading...")
+
+            # Get the generated link for the stored file
+            file_link = file_message.link
+
+            # Forward the video/document with the new link to the target channel
+            await client.send_message(
+                Config.TARGET_CHANNEL,
+                text=f"{caption}\n[Download Link]({file_link})",
+                reply_markup=buttons,
+                disable_web_page_preview=True
             )
-        else:
-            file_message = await client.send_document(
-                Config.FILE_STORE_BOT,
-                document=message.document.file_id,
-                caption=f"Stored: {new_file_name}",
-                thumb=thumb  # Add thumbnail
-            )
 
-        # Get the generated link for the stored file
-        file_link = file_message.link
-
-        # Forward the video/document with the new link to the target channel
-        await client.send_message(
-            Config.TARGET_CHANNEL,
-            text=f"{caption}\n[Download Link]({file_link})",
-            reply_markup=buttons,
-            disable_web_page_preview=True
-        )
-
-        print(f"Uploaded {anime_name} Episode {episode_num} to the target channel with link.")
+            # Update the status message to indicate upload is complete
+            await status_message.edit_text("Upload complete.")
+            print(f"Uploaded {anime_name} Episode {episode_num} to the target channel with link.")
+        
+        except Exception as e:
+            # Update the status message to indicate an error occurred
+            await status_message.edit_text(f"Error occurred: {str(e)}")
+            print(f"Error during upload: {str(e)}")
     else:
+        # Send a message indicating that details couldn't be extracted from the file name
+        await message.reply_text("Could not extract details from the file name.")
         print("Could not extract details from the file name.")
 
 # Run the bot
