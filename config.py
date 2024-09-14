@@ -11,7 +11,7 @@ API_HASH = os.getenv("API_HASH", "a5dc7fec8302615f5b441ec5e238cd46")  # Your Tel
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7444872585:AAHYzPX_gygFh9xYvu0-k7YOUg7BSG_hzHg")  # Main bot token
 
 # Channel details
-DB_CHANNEL = int(os.getenv("DB_CHANNEL", "-1002234974607"))  # ID of the channel where files are stored
+FILE_STORE_CHANNEL = int(os.getenv("FILE_STORE_CHANNEL", "-1002234974607"))  # ID of the channel where files are stored
 SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL", "-1002183423252"))  # ID of the source channel where videos are sent
 TARGET_CHANNEL = int(os.getenv("TARGET_CHANNEL", "-1002245327685"))  # ID of the target channel where posts are published
 TEMP_DIR = "downloads"  # Directory to store temporarily downloaded files
