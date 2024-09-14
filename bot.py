@@ -41,9 +41,9 @@ async def handle_thumbnail(client, message):
 @app.on_message((filters.video | filters.document) & filters.channel)
 async def handle_upload(client, message):
     # Define channel usernames or IDs
-    SOURCE_CHANNEL = '@your_source_channel_username'
+    SOURCE_CHANNEL = '-1002183423252'
     DB_CHANNEL = '-1002234974607'
-    TARGET_CHANNEL = '@your_target_channel_username'
+    TARGET_CHANNEL = '-1002245327685'
     
     if message.chat.username != SOURCE_CHANNEL:
         return
