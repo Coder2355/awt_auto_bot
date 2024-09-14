@@ -40,9 +40,7 @@ async def handle_thumbnail(client, message):
 
 @app.on_message((filters.video | filters.document) & filters.channel)
 async def handle_upload(client, message):
-    
-    
-    if message.chat.username != SOURCE_CHANNEL:
+    if message.chat.id != SOURCE_CHANNEL:
         return
 
     # Initialize the thumbnail_path variable
@@ -92,16 +90,12 @@ async def handle_upload(client, message):
         thumbnail_path = None  # No thumbnail available
 
     # Upload the renamed video to the database channel (for generating the link)
-    try:
-        db_message = await client.send_video(
-            DB_CHANNEL, 
-            video=new_filepath, 
-            thumb=thumbnail_path,  # Use the downloaded thumbnail
-            caption=new_filename
-        )
-    except Exception as e:
-        await upload_msg.edit_text(f"Failed to upload video: {e}")
-        return
+    db_message = await client.send_video(
+        DB_CHANNEL, 
+        video=new_filepath, 
+        thumb=thumbnail_path,  # Use the downloaded thumbnail
+        caption=new_filename
+    )
 
     # Generate the file link
     file_link = f"https://t.me/{DB_CHANNEL}/{db_message.message_id}"
@@ -112,16 +106,12 @@ async def handle_upload(client, message):
     )
 
     # Upload poster to the target channel with buttons
-    try:
-        await client.send_photo(
-            TARGET_CHANNEL,
-            photo=thumbnail_path,  # Use the thumbnail as the poster image
-            caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}",
-            reply_markup=buttons
-        )
-    except Exception as e:
-        await upload_msg.edit_text(f"Failed to upload poster: {e}")
-        return
+    await client.send_photo(
+        TARGET_CHANNEL,
+        photo=thumbnail_path,  # Use the thumbnail as the poster image
+        caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}",
+        reply_markup=buttons
+    )
 
     # Clean up temporary files
     os.remove(new_filepath)
@@ -130,6 +120,6 @@ async def handle_upload(client, message):
         thumbnail_path = None  # Reset thumbnail_path after use
 
     await upload_msg.edit_text("Video processed and uploaded successfully.")
-    
+
 # Start the bot
 app.run()
