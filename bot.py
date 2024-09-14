@@ -15,7 +15,6 @@ bot = Client(
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
-    bot_token2=FILE_STORE_BOT_TOKEN,
 )
 
 # Dictionary to store custom thumbnail
