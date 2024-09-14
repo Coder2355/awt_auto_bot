@@ -3,7 +3,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
-from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_BOT, SOURCE_CHANNEL, TARGET_CHANNEL
+from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_BOT, DATABASE_CHANNEL_ID, SOURCE_CHANNEL, TARGET_CHANNEL
 
 # Initialize the bot
 bot = Client(
@@ -18,7 +18,6 @@ custom_thumbnail = {}
 
 # Helper function to extract anime details from file name
 def extract_anime_details(file_name):
-    # Example: "One Piece S01E23 1080p.mp4"
     match = re.match(r"(.+?) S(\d+)E(\d+).+?(\d{3,4}p)", file_name)
     if match:
         anime_name = match.group(1)
@@ -35,21 +34,26 @@ async def rename_file(file_path, anime_name, season, episode, quality):
     os.rename(file_path, new_path)
     return new_path
 
-# Function to upload file to file store bot and get the link
+# Function to upload file to file store bot and get the link from the database channel
 async def upload_to_file_store(bot, file_path, status_message):
     async with bot:
         await status_message.edit_text("📤 Uploading file to file store bot...")  # Status message for uploading
         sent_message = await bot.send_document(FILE_STORE_BOT, file_path)
+        forwarded_message = await sent_message.forward(DATABASE_CHANNEL_ID)  # Forward to the database channel
+        
+        # Generate link to the forwarded message in the database channel
+        file_link = f"https://t.me/c/{DATABASE_CHANNEL_ID}/{forwarded_message.message_id}"
+        
         await status_message.edit_text("✅ File uploaded successfully!")
-        return sent_message.document.file_id  # File ID is the link to the document
+        return file_link
 
 # Function to create poster with button linking to the video file
 async def create_poster_with_buttons(bot, chat_id, link, anime_name, season, episode, quality):
     buttons = InlineKeyboardMarkup(
-        [[InlineKeyboardButton(f"Watch {anime_name} S{season}E{episode} {quality}", url=f"https://t.me/{FILE_STORE_BOT}?start={link}")]]
+        [[InlineKeyboardButton(f"Watch {anime_name} S{season}E{episode} {quality}", url=link)]]
     )
     
-    caption = f"**{anime_name}**\nSeason {season} - Episode {episode} [{quality}]\n[Watch Now](https://t.me/{FILE_STORE_BOT}?start={link})"
+    caption = f"**{anime_name}**\nSeason {season} - Episode {episode} [{quality}]\n[Watch Now]({link})"
     
     if chat_id in custom_thumbnail:
         await bot.send_photo(chat_id, custom_thumbnail[chat_id], caption=caption, reply_markup=buttons)
@@ -75,7 +79,7 @@ async def handle_video_or_document(bot, message):
         # Rename file with anime details
         new_file_path = await rename_file(file_path, anime_name, season, episode, quality)
         
-        # Upload to file store bot and get the link
+        # Upload to file store bot and get the link from the database channel
         link = await upload_to_file_store(bot, new_file_path, status_message)
         
         # Create a poster with buttons linking to the uploaded video
