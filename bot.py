@@ -16,20 +16,34 @@ bot = Client(
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
 )
+app = Client(
+    "file_sore_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=FILE_STORE_BOT_TOKEN,
+)
 
 # Dictionary to store custom thumbnail
 custom_thumbnail = {}
 
 # Helper function to extract anime details from file name
+import re
+
 def extract_anime_details(file_name):
-    match = re.match(r"(.+?) S(\d+)E(\d+).+?(\d{3,4}p)", file_name)
+    # Adjust regex pattern to match different formats
+    match = re.match(r"(.+?) S(\d+)E(\d+).*?(\d{3,4}p)", file_name, re.IGNORECASE)
     if match:
-        anime_name = match.group(1)
+        anime_name = match.group(1).strip()
         season = match.group(2)
         episode = match.group(3)
         quality = match.group(4)
-        return anime_name.strip(), season, episode, quality
+        return anime_name, season, episode, quality
     return None, None, None, None
+
+# Debug example
+file_name = "AnimeName S01E01 720p.mp4"  # Replace with actual file name
+anime_name, season, episode, quality = extract_anime_details(file_name)
+print(f"Extracted details: Name={anime_name}, Season={season}, Episode={episode}, Quality={quality}")
 
 # Function to rename the video file
 async def rename_file(file_path, anime_name, season, episode, quality):
@@ -100,7 +114,7 @@ async def handle_thumbnail(bot, message):
     await message.reply_text("Thumbnail saved. It will be used for future video uploads.")
 
 # File Store Bot - Handle direct uploads to the file store bot (for testing)
-@bot.on_message(filters.private & (filters.document | filters.video))
+@app.on_message(filters.private & (filters.document | filters.video))
 async def store_file_direct(bot, message):
     file_id = message.document.file_id if message.document else message.video.file_id
     file_name = message.document.file_name if message.document else message.video.file_name
@@ -137,3 +151,4 @@ async def start_message(bot, message):
 
 if __name__ == "__main__":
     bot.run()
+    app.run()
