@@ -15,13 +15,7 @@ bot = Client(
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
-)
-
-file_store_bot = Client(
-    "file_store_bot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=FILE_STORE_BOT_TOKEN,
+    file_store_bot_token=FILE_STORE_BOT_TOKEN,
 )
 
 # Dictionary to store custom thumbnail
@@ -107,7 +101,7 @@ async def handle_thumbnail(bot, message):
     await message.reply_text("Thumbnail saved. It will be used for future video uploads.")
 
 # File Store Bot - Handle direct uploads to the file store bot (for testing)
-@file_store_bot.on_message(filters.private & (filters.document | filters.video))
+@bot.on_message(filters.private & (filters.document | filters.video))
 async def store_file_direct(bot, message):
     file_id = message.document.file_id if message.document else message.video.file_id
     file_name = message.document.file_name if message.document else message.video.file_name
@@ -141,17 +135,6 @@ async def start_message(bot, message):
     )
     await message.reply_text(start_text)
 
-# Run the combined bot
-async def main():
-    await bot.start()
-    await file_store_bot.start()
-
-    print("Both bots are running!")
-
-    await idle()  # This will keep the bots running until interrupted
-
-    await bot.stop()
-    await file_store_bot.stop()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    bot.run()
