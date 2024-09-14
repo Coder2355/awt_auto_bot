@@ -1,6 +1,6 @@
 import os
 import asyncio
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
 from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_BOT_TOKEN, DATABASE_CHANNEL_ID, SOURCE_CHANNEL, TARGET_CHANNEL
@@ -148,8 +148,11 @@ async def main():
     await file_store_bot.start()
 
     print("Both bots are running!")
-    
-    await asyncio.gather(bot.idle(), file_store_bot.idle())
+
+    await idle()  # This will keep the bots running until interrupted
+
+    await bot.stop()
+    await file_store_bot.stop()
 
 if __name__ == "__main__":
     asyncio.run(main())
