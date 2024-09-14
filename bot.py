@@ -45,7 +45,8 @@ async def handle_upload(client, message):
 
     # Initialize the thumbnail_path variable
     global thumbnail_path
-    
+    thumbnail_path = None  # Initialize as None at the start
+
     # Send downloading message
     download_msg = await message.reply_text("Downloading the file...")
 
@@ -54,7 +55,7 @@ async def handle_upload(client, message):
     await download_msg.edit_text("File downloaded successfully.")
 
     filename = os.path.basename(download_path)
-    
+
     # Extract anime details from the filename
     anime_name, season, episode, quality = extract_anime_details(filename)
 
@@ -74,11 +75,22 @@ async def handle_upload(client, message):
     # Send uploading message
     upload_msg = await message.reply_text("Uploading the file...")
 
+    # Check if a video file has a thumbnail, or use the provided thumbnail if set
+    if message.video and message.video.thumbs:
+        # Use the video's default thumbnail if no custom thumbnail was provided
+        thumb = thumbnail_path or message.video.thumbs[0].file_id
+    elif message.document and message.document.thumbs:
+        # Handle document file with thumbnail
+        thumb = thumbnail_path or message.document.thumbs[0].file_id
+    else:
+        # No thumbnail available
+        thumb = thumbnail_path
+
     # Upload the renamed video to the database channel (for generating the link)
     db_message = await client.send_video(
         DB_CHANNEL, 
         video=new_filepath, 
-        thumb=thumbnail_path or message.video.thumbs[0].file_id if message.video.thumbs else None,
+        thumb=thumb,  # Use the chosen thumbnail (either custom or default)
         caption=new_filename
     )
 
@@ -93,7 +105,7 @@ async def handle_upload(client, message):
     # Upload poster to the target channel with buttons
     await client.send_photo(
         TARGET_CHANNEL,
-        photo=thumbnail_path or message.video.thumbs[0].file_id if message.video.thumbs else None,
+        photo=thumb,  # Use the thumbnail as the poster image
         caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}",
         reply_markup=buttons
     )
