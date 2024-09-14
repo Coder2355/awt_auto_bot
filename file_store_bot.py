@@ -1,8 +1,9 @@
 # file_store_bot.py
 
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
+import config
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Initialize the bot for file storage
 file_store_bot = Client(
@@ -12,40 +13,30 @@ file_store_bot = Client(
     bot_token=os.getenv("FILE_STORE_BOT_TOKEN")
 )
 
-# Dictionary to store file links and file names
-file_storage = {}
+# Set the database channel where files will be stored
+DATABASE_CHANNEL = int(os.getenv("DATABASE_CHANNEL_ID"))
 
-# Function to handle file uploads (documents or videos)
+# Function to handle file uploads (documents or videos) and store them in the database channel
 @file_store_bot.on_message(filters.private & (filters.document | filters.video))
 async def store_file(bot, message):
     file_id = message.document.file_id if message.document else message.video.file_id
     file_name = message.document.file_name if message.document else message.video.file_name
+    
+    # Forward the file to the database channel
+    forwarded_message = await message.forward(DATABASE_CHANNEL)
 
-    # Store the file ID and file name in the dictionary
-    file_storage[file_name] = file_id
-
-    # Create a button to retrieve the file
+    # Create a button that links to the forwarded message in the database channel
+    file_link = f"https://t.me/c/{DATABASE_CHANNEL}/{forwarded_message.message_id}"
     buttons = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Download File", url=f"https://t.me/{bot.get_me().username}?start={file_id}")]]
+        [[InlineKeyboardButton("Download File", url=file_link)]]
     )
 
-    # Reply with a message that contains the file ID and button to download
+    # Reply to the user with the file link
     await message.reply_text(
-        f"File '{file_name}' has been stored!\nFile ID: `{file_id}`",
-        reply_markup=buttons
+        f"File '{file_name}' has been stored!\n[Download here]({file_link})",
+        reply_markup=buttons,
+        disable_web_page_preview=True
     )
-
-# Function to send stored file when link/button is pressed
-@file_store_bot.on_message(filters.command("start"))
-async def send_stored_file(bot, message):
-    # Extract file ID from the start command (e.g. /start file_id)
-    file_id = message.command[1] if len(message.command) > 1 else None
-
-    if file_id and file_id in file_storage.values():
-        # Send the file based on the file ID
-        await bot.send_document(message.chat.id, file_id)
-    else:
-        await message.reply_text("Invalid file link or file no longer exists.")
 
 # Run the file store bot
 if __name__ == "__main__":
