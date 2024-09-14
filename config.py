@@ -12,8 +12,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "7444872585:AAHYzPX_gygFh9xYvu0-k7YOUg7BSG_hz
 FILE_STORE_BOT_TOKEN = os.getenv("FILE_STORE_BOT_TOKEN", "7116266807:AAFiuS4MxcubBiHRyzKEDnmYPCRiS0f3aGU")  # File store bot token
 
 # Channel details
-DATABASE_CHANNEL_ID = int(os.getenv("DATABASE_CHANNEL_ID", "-1002234974607"))  # ID of the channel where files are stored
+DB_CHANNEL = int(os.getenv("DATABASE_CHANNEL_ID", "-1002234974607"))  # ID of the channel where files are stored
 SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL", "-1002183423252"))  # ID of the source channel where videos are sent
 TARGET_CHANNEL = int(os.getenv("TARGET_CHANNEL", "-1002245327685"))  # ID of the target channel where posts are published
-
+TEMP_DIR = "downloads"  # Directory to store temporarily downloaded files
 # Make sure that your environment variables (or hardcoded values) are correct.
