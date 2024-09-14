@@ -144,9 +144,12 @@ async def start_message(bot, message):
 
 # Run the combined bot
 async def main():
-    async with bot, file_store_bot:
-        await asyncio.gather(bot.start(), file_store_bot.start())
-        await bot.idle()
+    await bot.start()
+    await file_store_bot.start()
+
+    print("Both bots are running!")
+    
+    await asyncio.gather(bot.idle(), file_store_bot.idle())
 
 if __name__ == "__main__":
     asyncio.run(main())
