@@ -50,7 +50,7 @@ async def handle_upload(client, message):
     # Send downloading message
     download_msg = await message.reply_text("Downloading the file...")
 
-    # Download file
+    # Download the video or document
     download_path = await message.download(f"{TEMP_DIR}/")
     await download_msg.edit_text("File downloaded successfully.")
 
@@ -75,22 +75,25 @@ async def handle_upload(client, message):
     # Send uploading message
     upload_msg = await message.reply_text("Uploading the file...")
 
-    # Check if a video file has a thumbnail, or use the provided thumbnail if set
+    # Handle the thumbnail
     if message.video and message.video.thumbs:
-        # Use the video's default thumbnail if no custom thumbnail was provided
-        thumb = thumbnail_path or message.video.thumbs[0].file_id
+        thumb_id = message.video.thumbs[0].file_id
     elif message.document and message.document.thumbs:
-        # Handle document file with thumbnail
-        thumb = thumbnail_path or message.document.thumbs[0].file_id
+        thumb_id = message.document.thumbs[0].file_id
     else:
-        # No thumbnail available
-        thumb = thumbnail_path
+        thumb_id = thumbnail_path  # Custom thumbnail if provided
+    
+    if thumb_id:
+        # Download the thumbnail locally
+        thumbnail_path = await client.download_media(thumb_id, file_name=f"{TEMP_DIR}/thumb.jpg")
+    else:
+        thumbnail_path = None  # No thumbnail available
 
     # Upload the renamed video to the database channel (for generating the link)
     db_message = await client.send_video(
         DB_CHANNEL, 
         video=new_filepath, 
-        thumb=thumb,  # Use the chosen thumbnail (either custom or default)
+        thumb=thumbnail_path,  # Use the downloaded thumbnail
         caption=new_filename
     )
 
@@ -105,7 +108,7 @@ async def handle_upload(client, message):
     # Upload poster to the target channel with buttons
     await client.send_photo(
         TARGET_CHANNEL,
-        photo=thumb,  # Use the thumbnail as the poster image
+        photo=thumbnail_path,  # Use the thumbnail as the poster image
         caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}",
         reply_markup=buttons
     )
