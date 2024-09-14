@@ -1,92 +1,68 @@
-import os
 import asyncio
-from pyrogram import Client, filters, idle
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
-from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_BOT_TOKEN, DATABASE_CHANNEL_ID, SOURCE_CHANNEL, TARGET_CHANNEL
-import logging
+import os
+from pyrogram import Client, filters, Button
+from pyrogram.errors import ChatWriteForbidden
+from pyrogram.types import Message
+from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_BOT
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-
-# Initialize the bots
-bot = Client(
-    "anime_bot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-)
-app = Client(
-    "file_sore_bot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=FILE_STORE_BOT_TOKEN,
-)
-
-# Dictionary to store custom thumbnail
-custom_thumbnail = {}
-
-# Helper function to extract anime details from file name
-import re
+# Initialize bots
+bot = Client("anime_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("file_store_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 def extract_anime_details(file_name):
-    # Adjust regex pattern to match different formats
-    match = re.match(r"(.+?) S(\d+)E(\d+).*?(\d{3,4}p)", file_name, re.IGNORECASE)
+    print(f"Received file name: {file_name}")  # Debug: Print received file name
+    # Regex pattern to extract anime details
+    match = re.match(r"(.+?)\s+S(\d{2})E(\d{2})\s+(\d{3,4}p)", file_name, re.IGNORECASE)
     if match:
         anime_name = match.group(1).strip()
         season = match.group(2)
         episode = match.group(3)
         quality = match.group(4)
+        print(f"Extracted details: Name={anime_name}, Season={season}, Episode={episode}, Quality={quality}")  # Debug: Print extracted details
         return anime_name, season, episode, quality
+    print("Regex match failed.")  # Debug: Indicate failure
     return None, None, None, None
 
-# Debug example
-file_name = "AnimeName S01E01 720p.mp4"  # Replace with actual file name
-anime_name, season, episode, quality = extract_anime_details(file_name)
-print(f"Extracted details: Name={anime_name}, Season={season}, Episode={episode}, Quality={quality}")
-
-# Function to rename the video file
 async def rename_file(file_path, anime_name, season, episode, quality):
-    new_name = f"{anime_name} S{season}E{episode} {quality}.mp4"
-    new_path = os.path.join("downloads", new_name)
-    os.rename(file_path, new_path)
-    return new_path
+    new_file_name = f"{anime_name} S{season}E{episode} {quality}.mp4"
+    new_file_path = os.path.join(os.path.dirname(file_path), new_file_name)
+    os.rename(file_path, new_file_path)
+    return new_file_path
 
-# Function to upload file to the database channel (file store bot) and get the link
 async def upload_to_file_store(file_path, status_message):
+    await status_message.edit_text("📤 Uploading file to the file store bot...")
     async with file_store_bot:
-        await status_message.edit_text("📤 Uploading file to file store bot...")  # Status message for uploading
-        sent_message = await file_store_bot.send_document(DATABASE_CHANNEL_ID, file_path)
-        
-        # Generate link to the forwarded message in the database channel
-        file_link = f"https://t.me/c/{DATABASE_CHANNEL_ID}/{sent_message.message_id}"
-        
-        await status_message.edit_text("✅ File uploaded successfully!")
-        return file_link
+        file_id = await file_store_bot.send_document(
+            chat_id=FILE_STORE_BOT,
+            document=file_path
+        )
+    file_link = f"https://t.me/{FILE_STORE_BOT}/{file_id.message_id}"
+    return file_link
 
-# Function to create poster with buttons linking to the video file
-async def create_poster_with_buttons(link, chat_id, anime_name, season, episode, quality):
-    buttons = InlineKeyboardMarkup(
-        [[InlineKeyboardButton(f"Watch {anime_name} S{season}E{episode} {quality}", url=link)]]
-    )
-    
-    caption = f"**{anime_name}**\nSeason {season} - Episode {episode} [{quality}]\n[Watch Now]({link})"
-    
-    if chat_id in custom_thumbnail:
-        await bot.send_photo(chat_id, custom_thumbnail[chat_id], caption=caption, reply_markup=buttons)
-    else:
-        await bot.send_message(chat_id, caption, reply_markup=buttons)
+async def create_poster_with_buttons(file_link, target_channel, anime_name, season, episode, quality):
+    poster_text = f"Watch {anime_name} - Season {season}, Episode {episode} ({quality})"
+    buttons = [[
+        Button.url("Watch Video", file_link)
+    ]]
+    async with bot:
+        await bot.send_message(
+            chat_id=target_channel,
+            text=poster_text,
+            reply_markup=buttons
+        )
 
-# Event handler for videos and document files in the source channel
 @bot.on_message(filters.channel & filters.chat(SOURCE_CHANNEL) & (filters.video | filters.document))
-async def handle_video_or_document(bot, message):
+async def handle_video_or_document(bot, message: Message):
     # Initial status message
     status_message = await message.reply_text("⏳ Processing your file...")
 
     file_id = message.video.file_id if message.video else message.document.file_id
     file_name = message.video.file_name if message.video else message.document.file_name
 
-    await status_message.edit_text("📥 Downloading file...")  # Update status for downloading
+    print(f"Processing file: {file_name}")  # Debug: Print the file name being processed
+
+    await status_message.edit_text("📥 Downloading file...")
     file_path = await bot.download_media(file_id, file_name=f"downloads/{file_name}")
 
     # Extract anime details from the file name
@@ -105,49 +81,6 @@ async def handle_video_or_document(bot, message):
         await status_message.edit_text("✅ Process completed successfully!")
     else:
         await status_message.edit_text("⚠️ Failed to extract anime details from the file name.")
-
-# Event handler for images (used as thumbnail)
-@bot.on_message(filters.channel & filters.chat(SOURCE_CHANNEL) & filters.photo)
-async def handle_thumbnail(bot, message):
-    # Save the thumbnail for future use
-    custom_thumbnail[message.chat.id] = message.photo.file_id
-    await message.reply_text("Thumbnail saved. It will be used for future video uploads.")
-
-# File Store Bot - Handle direct uploads to the file store bot (for testing)
-@app.on_message(filters.private & (filters.document | filters.video))
-async def store_file_direct(bot, message):
-    file_id = message.document.file_id if message.document else message.video.file_id
-    file_name = message.document.file_name if message.document else message.video.file_name
-    
-    # Forward the file to the database channel
-    forwarded_message = await message.forward(DATABASE_CHANNEL_ID)
-
-    # Create a button that links to the forwarded message in the database channel
-    file_link = f"https://t.me/c/{DATABASE_CHANNEL_ID}/{forwarded_message.message_id}"
-    buttons = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Download File", url=file_link)]]
-    )
-
-    # Reply to the user with the file link
-    await message.reply_text(
-        f"File '{file_name}' has been stored!\n[Download here]({file_link})",
-        reply_markup=buttons,
-        disable_web_page_preview=True
-    )
-
-# Start message
-@bot.on_message(filters.command("start") & filters.private)
-async def start_message(bot, message):
-    start_text = (
-        "👋 Hello! I am your bot for anime video processing and file storage.\n\n"
-        "Here are some things I can do:\n"
-        "1. Automatically process and rename anime video files from the source channel.\n"
-        "2. Upload videos to a file store channel and generate shareable links.\n"
-        "3. Use custom thumbnails for video posts.\n\n"
-        "Just send a video or document file, and I will handle the rest!"
-    )
-    await message.reply_text(start_text)
-
 
 if __name__ == "__main__":
     bot.run()
