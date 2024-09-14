@@ -9,17 +9,16 @@ import logging
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize the bot
+# Initialize the bots
 bot = Client(
-    "combined_bot",
+    "anime_bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
 )
 
-# File Store Bot session (for file storing in a database channel)
 file_store_bot = Client(
-    "file_store_bot_session",
+    "file_store_bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=FILE_STORE_BOT_TOKEN,
