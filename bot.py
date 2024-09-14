@@ -4,11 +4,11 @@ import os
 from pyrogram import Client, filters
 from pyrogram.errors import ChatWriteForbidden
 from pyrogram.types import Message
-from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_BOT
+from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_BOT_TOKEN
 
 # Initialize bots
 bot = Client("anime_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-app = Client("file_store_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("file_store_bot", api_id=API_ID, api_hash=API_HASH, bot_token=FILE_STORE_BOT_TOKEN)
 
 def extract_anime_details(file_name):
     print(f"Received file name: {file_name}")  # Debug: Print received file name
