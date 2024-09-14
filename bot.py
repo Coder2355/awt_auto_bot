@@ -3,14 +3,26 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
-from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_BOT, DATABASE_CHANNEL_ID, SOURCE_CHANNEL, TARGET_CHANNEL
+from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_BOT_TOKEN, DATABASE_CHANNEL_ID, SOURCE_CHANNEL, TARGET_CHANNEL
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 
 # Initialize the bot
 bot = Client(
-    "anime_upload_bot",
+    "combined_bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
+)
+
+# File Store Bot session (for file storing in a database channel)
+file_store_bot = Client(
+    "file_store_bot_session",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=FILE_STORE_BOT_TOKEN,
 )
 
 # Dictionary to store custom thumbnail
@@ -34,21 +46,20 @@ async def rename_file(file_path, anime_name, season, episode, quality):
     os.rename(file_path, new_path)
     return new_path
 
-# Function to upload file to file store bot and get the link from the database channel
-async def upload_to_file_store(bot, file_path, status_message):
-    async with bot:
+# Function to upload file to the database channel (file store bot) and get the link
+async def upload_to_file_store(file_path, status_message):
+    async with file_store_bot:
         await status_message.edit_text("📤 Uploading file to file store bot...")  # Status message for uploading
-        sent_message = await bot.send_document(FILE_STORE_BOT, file_path)
-        forwarded_message = await sent_message.forward(DATABASE_CHANNEL_ID)  # Forward to the database channel
+        sent_message = await file_store_bot.send_document(DATABASE_CHANNEL_ID, file_path)
         
         # Generate link to the forwarded message in the database channel
-        file_link = f"https://t.me/c/{DATABASE_CHANNEL_ID}/{forwarded_message.message_id}"
+        file_link = f"https://t.me/c/{DATABASE_CHANNEL_ID}/{sent_message.message_id}"
         
         await status_message.edit_text("✅ File uploaded successfully!")
         return file_link
 
-# Function to create poster with button linking to the video file
-async def create_poster_with_buttons(bot, chat_id, link, anime_name, season, episode, quality):
+# Function to create poster with buttons linking to the video file
+async def create_poster_with_buttons(link, chat_id, anime_name, season, episode, quality):
     buttons = InlineKeyboardMarkup(
         [[InlineKeyboardButton(f"Watch {anime_name} S{season}E{episode} {quality}", url=link)]]
     )
@@ -79,11 +90,11 @@ async def handle_video_or_document(bot, message):
         # Rename file with anime details
         new_file_path = await rename_file(file_path, anime_name, season, episode, quality)
         
-        # Upload to file store bot and get the link from the database channel
-        link = await upload_to_file_store(bot, new_file_path, status_message)
+        # Upload to the file store bot and get the link
+        link = await upload_to_file_store(new_file_path, status_message)
         
         # Create a poster with buttons linking to the uploaded video
-        await create_poster_with_buttons(bot, TARGET_CHANNEL, link, anime_name, season, episode, quality)
+        await create_poster_with_buttons(link, TARGET_CHANNEL, anime_name, season, episode, quality)
 
         await status_message.edit_text("✅ Process completed successfully!")
     else:
@@ -96,6 +107,46 @@ async def handle_thumbnail(bot, message):
     custom_thumbnail[message.chat.id] = message.photo.file_id
     await message.reply_text("Thumbnail saved. It will be used for future video uploads.")
 
-# Run the bot
+# File Store Bot - Handle direct uploads to the file store bot (for testing)
+@file_store_bot.on_message(filters.private & (filters.document | filters.video))
+async def store_file_direct(bot, message):
+    file_id = message.document.file_id if message.document else message.video.file_id
+    file_name = message.document.file_name if message.document else message.video.file_name
+    
+    # Forward the file to the database channel
+    forwarded_message = await message.forward(DATABASE_CHANNEL_ID)
+
+    # Create a button that links to the forwarded message in the database channel
+    file_link = f"https://t.me/c/{DATABASE_CHANNEL_ID}/{forwarded_message.message_id}"
+    buttons = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Download File", url=file_link)]]
+    )
+
+    # Reply to the user with the file link
+    await message.reply_text(
+        f"File '{file_name}' has been stored!\n[Download here]({file_link})",
+        reply_markup=buttons,
+        disable_web_page_preview=True
+    )
+
+# Start message
+@bot.on_message(filters.command("start") & filters.private)
+async def start_message(bot, message):
+    start_text = (
+        "👋 Hello! I am your bot for anime video processing and file storage.\n\n"
+        "Here are some things I can do:\n"
+        "1. Automatically process and rename anime video files from the source channel.\n"
+        "2. Upload videos to a file store channel and generate shareable links.\n"
+        "3. Use custom thumbnails for video posts.\n\n"
+        "Just send a video or document file, and I will handle the rest!"
+    )
+    await message.reply_text(start_text)
+
+# Run the combined bot
+async def main():
+    async with bot, file_store_bot:
+        await asyncio.gather(bot.start(), file_store_bot.start())
+        await bot.idle()
+
 if __name__ == "__main__":
-    bot.run()
+    asyncio.run(main())
