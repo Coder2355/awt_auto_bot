@@ -1,7 +1,7 @@
 import asyncio
 import re
 import os
-from pyrogram import Client, filters, Button
+from pyrogram import Client, filters
 from pyrogram.errors import ChatWriteForbidden
 from pyrogram.types import Message
 from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_BOT
