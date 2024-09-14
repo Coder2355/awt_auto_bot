@@ -13,7 +13,6 @@ app = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_
 if not os.path.exists(TEMP_DIR):
     os.makedirs(TEMP_DIR)
 
-
 def extract_anime_details(filename):
     # Regular expression pattern for extracting anime details
     anime_pattern = r"(?P<name>.*?)\s*[._-]?[sS](?P<season>\d+)[eE](?P<episode>\d+)[._-]?\[?(?P<quality>\d{3,4}p)?\]?"
