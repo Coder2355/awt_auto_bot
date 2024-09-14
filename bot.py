@@ -43,6 +43,9 @@ async def handle_upload(client, message):
     if message.chat.id != SOURCE_CHANNEL:
         return
 
+    # Initialize the thumbnail_path variable
+    global thumbnail_path
+    
     # Send downloading message
     download_msg = await message.reply_text("Downloading the file...")
 
@@ -56,10 +59,12 @@ async def handle_upload(client, message):
     anime_name, season, episode, quality = extract_anime_details(filename)
 
     if not all([anime_name, season, episode, quality]):
-        await message.reply_text(f"Unable to extract anime details from the filename: {filename}. Please ensure the filename follows this format: 'AnimeName_S01E01_[720p]' or similar.")
+        await message.reply_text(
+            f"Unable to extract anime details from the filename: {filename}. "
+            "Ensure the filename contains 'season', 'episode', and the quality (e.g., 720p) "
+            "or follows a standard format such as 'AnimeName_S01E01_[720p]'."
+        )
         return
-
-    # Proceed with renaming and uploading...
 
     # Rename the file
     new_filename = f"{anime_name} S{season}E{episode} [{quality}] Tamil.mp4"
@@ -73,7 +78,7 @@ async def handle_upload(client, message):
     db_message = await client.send_video(
         DB_CHANNEL, 
         video=new_filepath, 
-        thumb=thumbnail_path, 
+        thumb=thumbnail_path or message.video.thumbs[0].file_id if message.video.thumbs else None,
         caption=new_filename
     )
 
@@ -88,7 +93,7 @@ async def handle_upload(client, message):
     # Upload poster to the target channel with buttons
     await client.send_photo(
         TARGET_CHANNEL,
-        photo=thumbnail_path or message.video.thumbs[0].file_id if message.video else None,
+        photo=thumbnail_path or message.video.thumbs[0].file_id if message.video.thumbs else None,
         caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}",
         reply_markup=buttons
     )
@@ -97,9 +102,9 @@ async def handle_upload(client, message):
     os.remove(new_filepath)
     if thumbnail_path:
         os.remove(thumbnail_path)
-        thumbnail_path = None
+        thumbnail_path = None  # Reset thumbnail_path after use
 
     await upload_msg.edit_text("Video processed and uploaded successfully.")
-
+    
 # Start the bot
 app.run()
