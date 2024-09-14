@@ -13,12 +13,19 @@ app = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_
 if not os.path.exists(TEMP_DIR):
     os.makedirs(TEMP_DIR)
 
-# Function to extract anime details
+
 def extract_anime_details(filename):
-    anime_pattern = r"(?P<name>.*) S(?P<season>\d+)E(?P<episode>\d+) \[(?P<quality>.*?)\]"
-    match = re.match(anime_pattern, filename)
+    # Regular expression pattern for extracting anime details
+    anime_pattern = r"(?P<name>.*?)\s*[._-]?[sS](?P<season>\d+)[eE](?P<episode>\d+)[._-]?\[?(?P<quality>\d{3,4}p)?\]?"
+    match = re.search(anime_pattern, filename)
+    
     if match:
-        return match.group("name"), match.group("season"), match.group("episode"), match.group("quality")
+        anime_name = match.group("name").replace('.', ' ').replace('_', ' ').strip()
+        season = match.group("season")
+        episode = match.group("episode")
+        quality = match.group("quality") if match.group("quality") else "Unknown Quality"
+        return anime_name, season, episode, quality
+    
     return None, None, None, None
 
 # Variable to store the latest thumbnail
@@ -31,7 +38,6 @@ async def handle_thumbnail(client, message):
     thumbnail_path = await message.download(f"{TEMP_DIR}/thumbnail.jpg")
     await message.reply_text("Thumbnail has been set.")
 
-# Handle video or document uploads
 @app.on_message((filters.video | filters.document) & filters.channel)
 async def handle_upload(client, message):
     if message.chat.id != SOURCE_CHANNEL:
@@ -50,8 +56,10 @@ async def handle_upload(client, message):
     anime_name, season, episode, quality = extract_anime_details(filename)
 
     if not all([anime_name, season, episode, quality]):
-        await message.reply_text("Unable to extract anime details from the filename.")
+        await message.reply_text(f"Unable to extract anime details from the filename: {filename}. Please ensure the filename follows this format: 'AnimeName_S01E01_[720p]' or similar.")
         return
+
+    # Proceed with renaming and uploading...
 
     # Rename the file
     new_filename = f"{anime_name} S{season}E{episode} [{quality}] Tamil.mp4"
