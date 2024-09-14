@@ -97,8 +97,17 @@ async def handle_upload(client, message):
             caption=new_filename
         )
 
+        # Debug the file_message object
+        print(f"File message object: {file_message}")
+
+        # Extract message ID or URL from the response
+        message_id = getattr(file_message, 'message_id', None)
+        if not message_id:
+            await message.reply_text("Failed to get the message ID for the uploaded file.")
+            return
+
         # Generate the share link for the file
-        file_link = f"https://t.me/{FILE_STORE_CHANNEL}/{file_message.message_id}"
+        file_link = f"https://t.me/{FILE_STORE_CHANNEL}/{message_id}"
 
         # Create poster with buttons linking to the video
         buttons = InlineKeyboardMarkup(
