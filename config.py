@@ -16,3 +16,6 @@ SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL", "-1002183423252"))  # ID of the
 TARGET_CHANNEL = int(os.getenv("TARGET_CHANNEL", "-1002245327685"))  # ID of the target channel where posts are published
 TEMP_DIR = "downloads"  # Directory to store temporarily downloaded files
 # Make sure that your environment variables (or hardcoded values) are correct.
+
+DB_URI = "mongodb+srv://Speedwolf1:speedwolf24689@cluster0.rgfywsf.mongodb.net/"
+DB_NAME = "Speedwolf1"
