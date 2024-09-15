@@ -1,5 +1,6 @@
 tgcrypto
 flask 
+pymongo[srv]==4.6.0
 hachoir
 pyrofork  # Pyrogram is used for interacting with the Telegram API
 asyncio==3.4.3     # For asynchronous handling
