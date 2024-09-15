@@ -6,7 +6,7 @@ from pymongo import MongoClient
 import subprocess
 
 # Load configurations from config.py
-from config import API_ID, API_HASH, BOT_TOKEN, DB_URI, DB_NAME, ADMINS, TARGET_CHANNEL, SOURCE_CHANNEL, FLASK_PORT
+from config import API_ID, API_HASH, BOT_TOKEN, DB_URI, DB_NAME, ADMINS, TARGET_CHANNEL, SOURCE_CHANNEL
 
 # Pyrogram Client
 bot = Client("auto_anime_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
