@@ -1,7 +1,7 @@
 import os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_CHANNEL_ID, TARGET_CHANNEL_ID, DB_CHANNEL
+from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_CHANNEL_ID, TARGET_CHANNEL_ID, DB_CHANNEL, FILE_STORE_BOT_USERNAME
 
 # Initialize the bot
 app = Client("auto_anime_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -37,16 +37,17 @@ async def handle_video(client, message):
             progress=progress_callback  # Optional: progress callback function
         )
         
-        # Step 3: Retrieve the link for the uploaded video
+        # Step 3: Retrieve the file store bot link after uploading
         await status_message.edit_text("🔗 **Getting file link from the database channel...**")
         
-        # Fetch the message again to get the shareable link
-        message_with_link = await app.get_messages(chat_id=DB_CHANNEL, message_ids=uploaded_message.id)
-        file_link = message_with_link.link  # Get the shareable link
-        
-        # Step 4: Create the button layout with the file link
+        # Construct the file store bot URL link (format like t.me/Phoenix_store11_bot?start=<file_id>)
+        file_id = uploaded_message.document.file_id  # Extract file ID
+        store_bot_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{file_id}"
+        share_url = f"https://telegram.me/share/url?url={store_bot_link}"
+
+        # Step 4: Create the button layout with the shareable link
         buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Share URL", url=file_link)]]
+            [[InlineKeyboardButton("Share URL", url=share_url)]]
         )
         
         # Step 5: Post to the target channel with the file link and thumbnail
