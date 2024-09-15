@@ -39,7 +39,7 @@ async def handle_video(client, message):
         
         # Step 3: Retrieve the link for the uploaded video
         await status_message.edit_text("🔗 **Getting file link from the database channel...**")
-        file_link = f"https://t.me/{uploaded_message.chat.username}/{uploaded_message.message_id}"
+        file_link = f"https://t.me/c/{str(DB_CHANNEL).replace('-100', '')}/{uploaded_message.id}"
         
         # Step 4: Create the button layout with the file link
         buttons = InlineKeyboardMarkup(
@@ -58,7 +58,7 @@ async def handle_video(client, message):
         # Clean up: Remove the downloaded file
         os.remove(video_path)
         await status_message.edit_text("✅ **Process completed!**")
-
+        
 # Function to handle picture upload for thumbnail and poster image
 @app.on_message(filters.photo)
 async def handle_thumbnail(client, message):
