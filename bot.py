@@ -86,16 +86,25 @@ async def handle_upload(client, message):
         thumbnail_path = None
 
     # Upload the renamed video to the database channel (for generating the link)
-    db_message = await client.send_video(
-        DB_CHANNEL, 
-        video=new_filepath, 
-        thumb=thumbnail_path,  
-        caption=new_filename
-    )
+    try:
+        db_message = await client.send_video(
+            DB_CHANNEL, 
+            video=new_filepath, 
+            thumb=thumbnail_path,  
+            caption=new_filename
+        )
+
+        if not hasattr(db_message, 'message_id'):
+            raise AttributeError("The db_message object has no message_id attribute.")
+
+        message_id = db_message.message_id
+
+    except Exception as e:
+        await upload_msg.edit_text(f"Error uploading the file: {str(e)}")
+        return
 
     # Generate the encoded link using base64 encoding
     db_channel_id = abs(DB_CHANNEL)  # Ensure positive ID
-    message_id = db_message.message_id
     base64_string = await encode(f"get-{message_id * db_channel_id}")
     link = f"https://t.me/{client.username}?start={base64_string}"
 
@@ -119,7 +128,6 @@ async def handle_upload(client, message):
         thumbnail_path = None  # Reset thumbnail_path after use
 
     await upload_msg.edit_text("Video processed and uploaded successfully.")
-
 
 # Start the bot
 app.run()
