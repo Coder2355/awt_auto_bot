@@ -1,133 +1,99 @@
 import os
-import re
-import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, DB_CHANNEL, TEMP_DIR, ADMINS
-from helper_func import encode  # Assuming you have a helper function to encode base64 strings.
+import asyncio
+from pymongo import MongoClient
+import subprocess
 
-app = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# Load configurations from config.py
+from config import API_ID, API_HASH, BOT_TOKEN, DB_URI, DB_NAME, ADMINS, TARGET_CHANNEL, SOURCE_CHANNEL, FLASK_PORT
 
-# Ensure download directory exists
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
+# Pyrogram Client
+bot = Client("auto_anime_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+# MongoDB Client
+client = MongoClient(DB_URI)
+db = client[DB_NAME]
+
+# Collection to store user requests
+request_collection = db['requests']
+
+# Default Thumbnail
+default_thumbnail = 'Warrior Tamil.jpg'
 
 
-def extract_anime_details(filename):
-    anime_pattern = r"(?P<name>.*?)\s*[._-]?[sS](?P<season>\d+)[eE](?P<episode>\d+)[._-]?\[?(?P<quality>\d{3,4}p)?\]?"
-    match = re.search(anime_pattern, filename)
+@bot.on_message(filters.channel & (filters.video | filters.document) & filters.chat(SOURCE_CHANNEL))
+async def handle_file(client, message):
+    file = message.video or message.document
+    file_name = file.file_name
     
-    if match:
-        anime_name = match.group("name").replace('.', ' ').replace('_', ' ').strip()
-        season = match.group("season")
-        episode = match.group("episode")
-        quality = match.group("quality") if match.group("quality") else "Unknown Quality"
-        return anime_name, season, episode, quality
+    # Extract anime name, episode number, quality, and language from file_name (adjust regex accordingly)
+    anime_name, season, episode, quality = extract_details_from_file_name(file_name)
     
-    return None, None, None, None
-
-# Variable to store the latest thumbnail
-thumbnail_path = None
-
-# Handle receiving picture for setting as thumbnail
-@app.on_message(filters.photo & filters.channel)
-async def handle_thumbnail(client, message):
-    global thumbnail_path
-    thumbnail_path = await message.download(f"{TEMP_DIR}/thumbnail.jpg")
-    await message.reply_text("Thumbnail has been set.")
-
-@app.on_message((filters.video | filters.document) & filters.channel)
-async def handle_upload(client, message):
-    if message.chat.id != SOURCE_CHANNEL:
-        return
-
-    global thumbnail_path
-    thumbnail_path = None  # Initialize as None at the start
-
-    # Send downloading message
-    download_msg = await message.reply_text("Downloading the file...")
-
-    # Download the video or document
-    download_path = await message.download(f"{TEMP_DIR}/")
-    await download_msg.edit_text("File downloaded successfully.")
-
-    filename = os.path.basename(download_path)
-
-    # Extract anime details from the filename
-    anime_name, season, episode, quality = extract_anime_details(filename)
-
-    if not all([anime_name, season, episode, quality]):
-        await message.reply_text(
-            f"Unable to extract anime details from the filename: {filename}. "
-            "Ensure the filename contains 'season', 'episode', and the quality (e.g., 720p) "
-            "or follows a standard format such as 'AnimeName_S01E01_[720p]'."
-        )
-        return
-
-    # Rename the file
-    new_filename = f"{anime_name} S{season}E{episode} [{quality}] Tamil.mp4"
-    new_filepath = os.path.join(TEMP_DIR, new_filename)
-    os.rename(download_path, new_filepath)
-
-    # Send uploading message
-    upload_msg = await message.reply_text("Uploading the file...")
-
-    # Handle the thumbnail
-    if message.video and message.video.thumbs:
-        thumb_id = message.video.thumbs[0].file_id
-    elif message.document and message.document.thumbs:
-        thumb_id = message.document.thumbs[0].file_id
-    else:
-        thumb_id = thumbnail_path  # Custom thumbnail if provided
+    new_file_name = f"{anime_name} S{season}E{episode} {quality} Tamil"
+    download_message = await message.reply_text(f"📥 Downloading {new_file_name}...")
     
-    if thumb_id:
-        thumbnail_path = await client.download_media(thumb_id, file_name=f"{TEMP_DIR}/thumb.jpg")
-    else:
-        thumbnail_path = None
+    # Download the file
+    download_path = await client.download_media(message, file_name=new_file_name)
+    await download_message.edit(f"✅ Downloaded {new_file_name}")
 
-    # Upload the renamed video to the database channel (for generating the link)
-    try:
-        db_message = await client.send_video(
-            DB_CHANNEL, 
-            video=new_filepath, 
-            thumb=thumbnail_path,  
-            caption=new_filename
-        )
-
-        if not hasattr(db_message, 'message_id'):
-            raise AttributeError("The db_message object has no message_id attribute.")
-
-        message_id = db_message.message_id
-
-    except Exception as e:
-        await upload_msg.edit_text(f"Error uploading the file: {str(e)}")
-        return
-
-    # Generate the encoded link using base64 encoding
-    db_channel_id = abs(DB_CHANNEL)  # Ensure positive ID
-    base64_string = await encode(f"get-{message_id * db_channel_id}")
-    link = f"https://t.me/{client.username}?start={base64_string}"
-
-    # Create inline keyboard with the link
-    buttons = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]]
+    # Generate file link (using inbuilt file storage, adjust as necessary)
+    file_link = f"http://your_file_storage.com/{new_file_name}"
+    
+    # Set Thumbnail
+    thumb_path = default_thumbnail
+    if db['thumbnails'].find_one({"chat_id": message.chat.id}):
+        thumb_path = db['thumbnails'].find_one({"chat_id": message.chat.id})["thumbnail"]
+    
+    # Upload the file to target channel
+    upload_message = await bot.send_message(message.chat.id, f"📤 Uploading {new_file_name}...")
+    await client.send_video(
+        chat_id=TARGET_CHANNEL,
+        video=download_path,
+        thumb=thumb_path,
+        caption=f"**{anime_name}**\n**Episode**: {episode}\n**Quality**: {quality}\n**Tamil Dub**",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Download", url=file_link)]
+        ])
     )
+    
+    await upload_message.edit(f"✅ Uploaded {new_file_name}")
 
-    # Upload the poster to the target channel with buttons
-    await client.send_photo(
-        TARGET_CHANNEL,
-        photo=thumbnail_path,  
-        caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}\n\n[Download Link]({link})",
-        reply_markup=buttons
-    )
+    # Cleanup downloaded files
+    os.remove(download_path)
 
-    # Clean up temporary files
-    os.remove(new_filepath)
-    if thumbnail_path:
-        os.remove(thumbnail_path)
-        thumbnail_path = None  # Reset thumbnail_path after use
 
-    await upload_msg.edit_text("Video processed and uploaded successfully.")
+def extract_details_from_file_name(file_name):
+    # Example: "AnimeName_S01E05_720p.mkv"
+    # You can adjust this regex or string processing based on your file name format
+    parts = file_name.split('_')
+    anime_name = parts[0]
+    season = parts[1][1:3]  # S01
+    episode = parts[1][4:]  # E05
+    quality = parts[2].split('.')[0]  # 720p
+    return anime_name, season, episode, quality
 
-# Start the bot
-app.run()
+
+# Command to set custom thumbnail
+@bot.on_message(filters.command('set_thumbnail') & filters.user(ADMINS))
+async def set_thumbnail(client, message):
+    if message.reply_to_message and message.reply_to_message.photo:
+        thumbnail = await message.reply_to_message.download()
+        db['thumbnails'].update_one(
+            {"chat_id": message.chat.id},
+            {"$set": {"thumbnail": thumbnail}},
+            upsert=True
+        )
+        await message.reply_text("✅ Thumbnail set successfully.")
+    else:
+        await message.reply_text("❌ Please reply to an image to set it as a thumbnail.")
+
+
+# Command to start the bot
+@bot.on_message(filters.command("start"))
+async def start(client, message):
+    await message.reply_text("👋 Hello! I am the Auto Anime Upload Bot. Send me files from the source channel!")
+
+
+if __name__ == "__main__":
+    bot.run()
