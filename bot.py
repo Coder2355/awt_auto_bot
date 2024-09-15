@@ -64,13 +64,25 @@ async def handle_file(client, message):
 
 
 def extract_details_from_file_name(file_name):
-    # Example: "AnimeName_S01E05_720p.mkv"
-    # You can adjust this regex or string processing based on your file name format
+    # Example expected format: "AnimeName_S01E05_720p.mkv"
     parts = file_name.split('_')
+
+    if len(parts) < 3:
+        raise ValueError("File name format is incorrect. Expected format: 'AnimeName_S01E05_720p'.")
+
     anime_name = parts[0]
-    season = parts[1][1:3]  # S01
-    episode = parts[1][4:]  # E05
-    quality = parts[2].split('.')[0]  # 720p
+
+    # Handle season and episode
+    season_episode = parts[1]  # S01E05
+    if len(season_episode) < 6 or not season_episode.startswith('S') or 'E' not in season_episode:
+        raise ValueError("Season and Episode format is incorrect. Expected format: 'S01E05'.")
+
+    season = season_episode[1:3]  # Extract '01' from 'S01'
+    episode = season_episode[4:]  # Extract '05' from 'E05'
+
+    # Handle quality (assuming the part after the second underscore is quality)
+    quality = parts[2].split('.')[0]  # 720p from '720p.mkv'
+
     return anime_name, season, episode, quality
 
 
