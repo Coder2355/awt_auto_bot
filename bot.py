@@ -47,9 +47,9 @@ async def handle_file(client, message):
     
     # Upload the file to target channel
     upload_message = await bot.send_message(message.chat.id, f"📤 Uploading {new_file_name}...")
-    await client.document(
+    await client.send_video(
         chat_id=TARGET_CHANNEL,
-        document=download_path,
+        video=download_path,
         caption=f"**{anime_name}**\n**Episode**: {episode}\n**Quality**: {quality}\n**Tamil Dub**",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Download", url=file_link)]
