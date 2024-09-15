@@ -18,52 +18,45 @@ db = client[DB_NAME]
 # Collection to store user requests
 request_collection = db['requests']
 
+# Default Thumbnail
+default_thumbnail = 'Warrior Tamil.jpg'
 
-# Function to check if the thumbnail exists, else set a default/fallback
-def get_thumbnail():
-    thumb_path = 'Warrior Tamil.jpg'  # Default thumbnail name
-    if os.path.exists(thumb_path):
-        return thumb_path
-    else:
-        print("Thumbnail not found, using no thumbnail.")
-        return None  # No thumbnail if the file is not found
 
-# Post in the target channel with buttons
 @bot.on_message(filters.channel & (filters.video | filters.document) & filters.chat(SOURCE_CHANNEL))
 async def handle_file(client, message):
     file = message.video or message.document
     file_name = file.file_name
     
-    # Extract anime name, episode number, quality, and language from file_name
+    # Extract anime name, episode number, quality, and language from file_name (adjust regex accordingly)
     anime_name, season, episode, quality = extract_details_from_file_name(file_name)
     
     new_file_name = f"{anime_name} S{season}E{episode} {quality} Tamil"
-    download_message = await message.reply_text(f"📥 Downloading {new_file_name}...")
+    download_message = await message.reply_text(f"ðŸ“¥ Downloading {new_file_name}...")
     
     # Download the file
     download_path = await client.download_media(message, file_name=new_file_name)
-    await download_message.edit(f"✅ Downloaded {new_file_name}")
+    await download_message.edit(f"📥 Downloaded {new_file_name}")
 
-    # Get the thumbnail, if it exists
-    thumb_path = get_thumbnail()
-    
+    # Generate file link (using inbuilt file storage, adjust as necessary)
     file_link = f"http://your_file_storage.com/{new_file_name}"
-    # Prepare buttons (file link and other options)
     
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📥 Download", url=file_link)],
-        [InlineKeyboardButton("More Anime", url="https://your_anime_website.com")]  # Example button
-    ])
+    # Set Thumbnail
+    thumb_path = default_thumbnail
+    if db['thumbnails'].find_one({"chat_id": message.chat.id}):
+        thumb_path = db['thumbnails'].find_one({"chat_id": message.chat.id})["thumbnail"]
     
-    # Post to target channel with poster, caption, and buttons
-    await client.send_photo(
+    # Upload the file to target channel
+    upload_message = await bot.send_message(message.chat.id, f"📤 Uploading {new_file_name}...")
+    await client.document(
         chat_id=TARGET_CHANNEL,
-        photo=thumb_path if thumb_path else default_fallback_image,  # Use default if no thumb
+        document=download_path,
         caption=f"**{anime_name}**\n**Episode**: {episode}\n**Quality**: {quality}\n**Tamil Dub**",
-        reply_markup=buttons
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Download", url=file_link)]
+        ])
     )
     
-    await message.reply_text(f"✅ Uploaded {new_file_name} with buttons in target channel!")
+    await upload_message.edit(f"âœ… Uploaded {new_file_name}")
 
     # Cleanup downloaded files
     os.remove(download_path)
@@ -102,15 +95,15 @@ async def set_thumbnail(client, message):
             {"$set": {"thumbnail": thumbnail}},
             upsert=True
         )
-        await message.reply_text("✅ Thumbnail set successfully.")
+        await message.reply_text("âœ… Thumbnail set successfully.")
     else:
-        await message.reply_text("❌ Please reply to an image to set it as a thumbnail.")
+        await message.reply_text("âŒ Please reply to an image to set it as a thumbnail.")
 
 
 # Command to start the bot
 @bot.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("👋 Hello! I am the Auto Anime Upload Bot. Send me files from the source channel!")
+    await message.reply_text("ðŸ‘‹ Hello! I am the Auto Anime Upload Bot. Send me files from the source channel!")
 
 
 if __name__ == "__main__":
