@@ -3,9 +3,8 @@ import re
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-# Import config settings
-from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, DB_CHANNEL, TEMP_DIR
+from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, DB_CHANNEL, TEMP_DIR, ADMINS
+from helper_func import encode  # Assuming you have a helper function to encode base64 strings.
 
 app = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -15,7 +14,6 @@ if not os.path.exists(TEMP_DIR):
 
 
 def extract_anime_details(filename):
-    # Regular expression pattern for extracting anime details
     anime_pattern = r"(?P<name>.*?)\s*[._-]?[sS](?P<season>\d+)[eE](?P<episode>\d+)[._-]?\[?(?P<quality>\d{3,4}p)?\]?"
     match = re.search(anime_pattern, filename)
     
@@ -43,7 +41,6 @@ async def handle_upload(client, message):
     if message.chat.id != SOURCE_CHANNEL:
         return
 
-    # Initialize the thumbnail_path variable
     global thumbnail_path
     thumbnail_path = None  # Initialize as None at the start
 
@@ -84,32 +81,34 @@ async def handle_upload(client, message):
         thumb_id = thumbnail_path  # Custom thumbnail if provided
     
     if thumb_id:
-        # Download the thumbnail locally
         thumbnail_path = await client.download_media(thumb_id, file_name=f"{TEMP_DIR}/thumb.jpg")
     else:
-        thumbnail_path = None  # No thumbnail available
+        thumbnail_path = None
 
     # Upload the renamed video to the database channel (for generating the link)
     db_message = await client.send_video(
         DB_CHANNEL, 
         video=new_filepath, 
-        thumb=thumbnail_path,  # Use the downloaded thumbnail
+        thumb=thumbnail_path,  
         caption=new_filename
     )
 
-    # Generate the file link
-    file_link = f"https://t.me/{DB_CHANNEL}/{db_message.message_id}"
+    # Generate the encoded link using base64 encoding
+    db_channel_id = abs(DB_CHANNEL)  # Ensure positive ID
+    message_id = db_message.message_id
+    base64_string = await encode(f"get-{message_id * db_channel_id}")
+    link = f"https://t.me/{client.username}?start={base64_string}"
 
-    # Create poster with buttons linking to the video
+    # Create inline keyboard with the link
     buttons = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Download", url=file_link)]]
+        [[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]]
     )
 
-    # Upload poster to the target channel with buttons
+    # Upload the poster to the target channel with buttons
     await client.send_photo(
         TARGET_CHANNEL,
-        photo=thumbnail_path,  # Use the thumbnail as the poster image
-        caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}",
+        photo=thumbnail_path,  
+        caption=f"**{anime_name}**\nSeason {season}, Episode {episode}\nQuality: {quality}\n\n[Download Link]({link})",
         reply_markup=buttons
     )
 
@@ -120,6 +119,7 @@ async def handle_upload(client, message):
         thumbnail_path = None  # Reset thumbnail_path after use
 
     await upload_msg.edit_text("Video processed and uploaded successfully.")
+
 
 # Start the bot
 app.run()
