@@ -32,33 +32,44 @@ async def handle_video(client, message):
         uploaded_message = await app.send_document(
             chat_id=DB_CHANNEL,
             document=video_path,
-            thumb=thumbnail_path,  # Set the thumbnail if it's provided
+            thumb=thumbnail_path if thumbnail_path else None,  # Only send if thumbnail exists
             caption=f"Renamed Video: {new_filename}",
             progress=progress_callback  # Optional: progress callback function
         )
         
         # Step 3: Retrieve the link for the uploaded video
         await status_message.edit_text("🔗 **Getting file link from the database channel...**")
-        file_link = f"https://t.me/c/{str(DB_CHANNEL).replace('-100', '')}/{uploaded_message.id}"
+        
+        # Fetch the message again to get the shareable link
+        message_with_link = await app.get_messages(chat_id=DB_CHANNEL, message_ids=uploaded_message.id)
+        file_link = message_with_link.link  # Get the shareable link
         
         # Step 4: Create the button layout with the file link
         buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Download Video", url=file_link)]]
+            [[InlineKeyboardButton("Share URL", url=file_link)]]
         )
         
         # Step 5: Post to the target channel with the file link and thumbnail
-        await status_message.edit_text("📤 **Uploading video link to the target channel...**")
-        await app.send_photo(
-            chat_id=TARGET_CHANNEL_ID,
-            photo=thumbnail_path,  # Send the poster image (thumbnail)
-            caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-            reply_markup=buttons
-        )
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            await status_message.edit_text("📤 **Uploading video link to the target channel...**")
+            await app.send_photo(
+                chat_id=TARGET_CHANNEL_ID,
+                photo=thumbnail_path,  # Send the poster image (thumbnail)
+                caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
+                reply_markup=buttons
+            )
+        else:
+            await status_message.edit_text("📤 **Uploading video link to the target channel without thumbnail...**")
+            await app.send_message(
+                chat_id=TARGET_CHANNEL_ID,
+                text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
+                reply_markup=buttons
+            )
         
         # Clean up: Remove the downloaded file
         os.remove(video_path)
         await status_message.edit_text("✅ **Process completed!**")
-        
+
 # Function to handle picture upload for thumbnail and poster image
 @app.on_message(filters.photo)
 async def handle_thumbnail(client, message):
