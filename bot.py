@@ -37,14 +37,19 @@ async def handle_video(client, message):
             progress=progress_callback  # Optional: progress callback function
         )
         
-        # Step 3: Retrieve the file store bot link after uploading
+        # Step 3: Retrieve the file store bot link directly from the file store bot's response
         await status_message.edit_text("🔗 **Getting file link from the database channel...**")
         
-        # Extract the file_id from the uploaded message to create an accurate link
-        file_id = uploaded_message.document.file_id  # Correct file ID
-        store_bot_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start={file_id}"  # Accurate link
+        # Retrieve the actual link from the caption or text of the uploaded message in the file store bot
+        if uploaded_message.caption:
+            store_bot_link = uploaded_message.caption  # Extract the link from the caption
+        elif uploaded_message.text:
+            store_bot_link = uploaded_message.text  # Extract the link from the text
+        else:
+            await status_message.edit_text("❌ **Failed to get the correct link from the file store bot!**")
+            return
 
-        # Step 4: Create the button layout with the shareable link to the file store bot
+        # Step 4: Create the button layout with the correct file store bot link
         buttons = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📥 Get File", url=store_bot_link)]]
         )
