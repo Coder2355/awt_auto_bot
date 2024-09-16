@@ -1,5 +1,6 @@
 import os
 import re
+import base64
 from pyrogram.errors import RPCError
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -11,21 +12,6 @@ app = Client("auto_anime_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_T
 # Global variable to store the thumbnail path
 thumbnail_path = None
 
-# Function to rename and upload video to file store bot's channel
-
-# Utility function to validate URLs
-def is_valid_url(url):
-    # Regular expression to validate URL format
-    url_regex = re.compile(
-        r'^(?:http|ftp)s?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'  # ...or ipv4
-        r'\[?[A-F0-9]*:[A-F0-9:]+\]?)'  # ...or ipv6
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-    
-    return re.match(url_regex, url) is not None
 
 @app.on_message(filters.channel & filters.document)
 async def handle_video(client, message):
@@ -41,6 +27,7 @@ async def handle_video(client, message):
         await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
         await status_message.edit_text("📤 **Uploading video to database channel...**")
         
+        # Upload the file to the database (file store bot)
         uploaded_message = await app.send_document(
             chat_id=DB_CHANNEL,
             document=video_path,
@@ -48,12 +35,16 @@ async def handle_video(client, message):
             caption=f"Renamed Video: {new_filename}",
         )
         
-        # Extract the link from the uploaded message caption
-        store_bot_link = uploaded_message.caption if uploaded_message.caption else None
-        
-        if store_bot_link and is_valid_url(store_bot_link):
+        # After uploading, construct the exact link
+        if uploaded_message:
+            file_id = uploaded_message.id  # Get the message ID from uploaded message
+            bot_username = "File_store033_bot"  # Replace with your file store bot's username
+            
+            # Construct the exact link for the button
+            file_store_link = f"https://t.me/{bot_username}?start=get-{file_id}"
+            
             buttons = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("📥 Get File", url=store_bot_link)]]
+                [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
             )
             
             try:
@@ -70,13 +61,16 @@ async def handle_video(client, message):
                         text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
                         reply_markup=buttons
                     )
-            except RPCError as e:
+                
+                await status_message.edit_text("✅ **Process completed successfully!**")
+            except Exception as e:
                 await status_message.edit_text(f"❌ **Failed to send message:** {str(e)}")
         else:
-            await status_message.edit_text("❌ **Failed to get a valid file link!**")
+            await status_message.edit_text("❌ **Failed to upload the file to the database channel!**")
         
-        os.remove(video_path)
-        await status_message.edit_text("✅ **Process completed!**")
+        # Remove the local file after processing
+        if os.path.exists(video_path):
+            os.remove(video_path)
         
 # Function to handle picture upload for thumbnail and poster image
 @app.on_message(filters.photo)
