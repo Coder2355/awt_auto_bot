@@ -40,14 +40,13 @@ async def handle_video(client, message):
         # Step 3: Retrieve the file store bot link after uploading
         await status_message.edit_text("🔗 **Getting file link from the database channel...**")
         
-        # Construct the file store bot URL link (format like t.me/Phoenix_store11_bot?start=<file_id>)
-        file_id = uploaded_message.document.file_id  # Extract file ID
-        store_bot_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{file_id}"
-        share_url = f"https://telegram.me/share/url?url={store_bot_link}"
+        # Extract the file_id from the uploaded message to create an accurate link
+        file_id = uploaded_message.document.file_id  # Correct file ID
+        store_bot_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start={file_id}"  # Accurate link
 
-        # Step 4: Create the button layout with the shareable link
+        # Step 4: Create the button layout with the shareable link to the file store bot
         buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Share URL", url=share_url)]]
+            [[InlineKeyboardButton("📥 Get File", url=store_bot_link)]]
         )
         
         # Step 5: Post to the target channel with the file link and thumbnail
