@@ -36,7 +36,7 @@ async def handle_video(client, message):
 
             if uploaded_message:
                 # Get the message link from the file store bot using the DB_CHANNEL and message ID
-                file_id = uploaded_message.message_id
+                file_id = uploaded_message.id  # Updated to use 'id'
                 file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{file_id}"
 
                 buttons = InlineKeyboardMarkup(
