@@ -1,5 +1,4 @@
 import os
-import re
 from pyrogram.errors import RPCError
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -24,20 +23,20 @@ async def handle_video(client, message):
         new_filename = f"{anime_name}_Episode_{episode_number}_{quality}.mp4"
         video_path = await message.download(file_name=new_filename)
         await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
-        await status_message.edit_text("📤 **Uploading video to file store bot...**")
+        await status_message.edit_text("📤 **Uploading video to database channel...**")
         
-        # Upload the file to the file store bot
+        # Upload the file to the database channel where the file store bot is admin
         try:
             uploaded_message = await app.send_document(
-                chat_id=FILE_STORE_BOT_USERNAME,
+                chat_id=DB_CHANNEL,
                 document=video_path,
                 thumb=thumbnail_path if thumbnail_path else None,
                 caption=f"Renamed Video: {new_filename}",
             )
 
             if uploaded_message:
-                # Get file link from the file store bot message
-                file_id = uploaded_message.message_id  # Get the message ID from uploaded message
+                # Get the message link from the file store bot using the DB_CHANNEL and message ID
+                file_id = uploaded_message.message_id
                 file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{file_id}"
 
                 buttons = InlineKeyboardMarkup(
@@ -61,9 +60,9 @@ async def handle_video(client, message):
 
                 await status_message.edit_text("✅ **Process completed successfully!**")
             else:
-                await status_message.edit_text("❌ **Failed to upload the file to the file store bot!**")
+                await status_message.edit_text("❌ **Failed to upload the file to the database channel!**")
         except RPCError as e:
-            await status_message.edit_text(f"❌ **Error while uploading to the file store bot:** {str(e)}")
+            await status_message.edit_text(f"❌ **Error while uploading to the database channel:** {str(e)}")
 
         # Remove the local file after processing
         if os.path.exists(video_path):
