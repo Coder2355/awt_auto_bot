@@ -1,6 +1,5 @@
 import os
 import re
-import base64
 from pyrogram.errors import RPCError
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -25,57 +24,52 @@ async def handle_video(client, message):
         new_filename = f"{anime_name}_Episode_{episode_number}_{quality}.mp4"
         video_path = await message.download(file_name=new_filename)
         await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
-        await status_message.edit_text("📤 **Uploading video to database channel...**")
+        await status_message.edit_text("📤 **Uploading video to file store bot...**")
         
-        # Upload the file to the file store bot (database channel)
-        uploaded_message = await app.send_document(
-            chat_id=DB_CHANNEL,
-            document=video_path,
-            thumb=thumbnail_path if thumbnail_path else None,
-            caption=f"Renamed Video: {new_filename}",
-        )
+        # Upload the file to the file store bot
+        try:
+            uploaded_message = await app.send_document(
+                chat_id=FILE_STORE_BOT_USERNAME,
+                document=video_path,
+                thumb=thumbnail_path if thumbnail_path else None,
+                caption=f"Renamed Video: {new_filename}",
+            )
 
-        # Wait for the file store bot to send the message with the correct link
-        if uploaded_message:
-            await status_message.edit_text("✅ **Uploaded! Retrieving link...**")
-            
-            # Retrieve the exact link from the message (file store bot will send the link)
-            # Assuming the file store bot sends a message containing the correct link
-            @app.on_message(filters.bot & filters.text)
-            async def get_file_store_link(client, message):
-                # Assuming the link is in the message text
-                file_store_link = re.search(r'(https://t.me/\S+)', message.text).group(1)
-                
+            if uploaded_message:
+                # Get file link from the file store bot message
+                file_id = uploaded_message.message_id  # Get the message ID from uploaded message
+                file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{file_id}"
+
                 buttons = InlineKeyboardMarkup(
                     [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
                 )
                 
-                try:
-                    if thumbnail_path and os.path.exists(thumbnail_path):
-                        await app.send_photo(
-                            chat_id=TARGET_CHANNEL_ID,
-                            photo=thumbnail_path,
-                            caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-                            reply_markup=buttons
-                        )
-                    else:
-                        await app.send_message(
-                            chat_id=TARGET_CHANNEL_ID,
-                            text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-                            reply_markup=buttons
-                        )
-                    
-                    await status_message.edit_text("✅ **Process completed successfully!**")
-                except Exception as e:
-                    await status_message.edit_text(f"❌ **Failed to send message:** {str(e)}")
-                
-        else:
-            await status_message.edit_text("❌ **Failed to upload the file to the database channel!**")
-        
+                # Send to the target channel with the poster or just the caption
+                if thumbnail_path and os.path.exists(thumbnail_path):
+                    await app.send_photo(
+                        chat_id=TARGET_CHANNEL_ID,
+                        photo=thumbnail_path,
+                        caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
+                        reply_markup=buttons
+                    )
+                else:
+                    await app.send_message(
+                        chat_id=TARGET_CHANNEL_ID,
+                        text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
+                        reply_markup=buttons
+                    )
+
+                await status_message.edit_text("✅ **Process completed successfully!**")
+            else:
+                await status_message.edit_text("❌ **Failed to upload the file to the file store bot!**")
+        except RPCError as e:
+            await status_message.edit_text(f"❌ **Error while uploading to the file store bot:** {str(e)}")
+
         # Remove the local file after processing
         if os.path.exists(video_path):
             os.remove(video_path)
-        
+
+
 # Function to handle picture upload for thumbnail and poster image
 @app.on_message(filters.photo)
 async def handle_thumbnail(client, message):
@@ -87,9 +81,11 @@ async def handle_thumbnail(client, message):
     # Send a confirmation message
     await message.reply_text("Thumbnail and poster image added successfully ✅")
 
+
 # Optional progress callback to show download/upload progress
 async def progress_callback(current, total):
     print(f"Progress: {current * 100 / total:.1f}%")
+
 
 # Run the bot
 app.run()
