@@ -27,44 +27,48 @@ async def handle_video(client, message):
         await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
         await status_message.edit_text("📤 **Uploading video to database channel...**")
         
-        # Upload the file to the database (file store bot)
+        # Upload the file to the file store bot (database channel)
         uploaded_message = await app.send_document(
             chat_id=DB_CHANNEL,
             document=video_path,
             thumb=thumbnail_path if thumbnail_path else None,
             caption=f"Renamed Video: {new_filename}",
         )
-        
-        # After uploading, construct the exact link
+
+        # Wait for the file store bot to send the message with the correct link
         if uploaded_message:
-            file_id = uploaded_message.id  # Get the message ID from uploaded message
-            bot_username = "File_store033_bot"  # Replace with your file store bot's username
+            await status_message.edit_text("✅ **Uploaded! Retrieving link...**")
             
-            # Construct the exact link for the button
-            file_store_link = f"https://t.me/{bot_username}?start=get-{file_id}"
-            
-            buttons = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
-            )
-            
-            try:
-                if thumbnail_path and os.path.exists(thumbnail_path):
-                    await app.send_photo(
-                        chat_id=TARGET_CHANNEL_ID,
-                        photo=thumbnail_path,
-                        caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-                        reply_markup=buttons
-                    )
-                else:
-                    await app.send_message(
-                        chat_id=TARGET_CHANNEL_ID,
-                        text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-                        reply_markup=buttons
-                    )
+            # Retrieve the exact link from the message (file store bot will send the link)
+            # Assuming the file store bot sends a message containing the correct link
+            @app.on_message(filters.bot & filters.text)
+            async def get_file_store_link(client, message):
+                # Assuming the link is in the message text
+                file_store_link = re.search(r'(https://t.me/\S+)', message.text).group(1)
                 
-                await status_message.edit_text("✅ **Process completed successfully!**")
-            except Exception as e:
-                await status_message.edit_text(f"❌ **Failed to send message:** {str(e)}")
+                buttons = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
+                )
+                
+                try:
+                    if thumbnail_path and os.path.exists(thumbnail_path):
+                        await app.send_photo(
+                            chat_id=TARGET_CHANNEL_ID,
+                            photo=thumbnail_path,
+                            caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
+                            reply_markup=buttons
+                        )
+                    else:
+                        await app.send_message(
+                            chat_id=TARGET_CHANNEL_ID,
+                            text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
+                            reply_markup=buttons
+                        )
+                    
+                    await status_message.edit_text("✅ **Process completed successfully!**")
+                except Exception as e:
+                    await status_message.edit_text(f"❌ **Failed to send message:** {str(e)}")
+                
         else:
             await status_message.edit_text("❌ **Failed to upload the file to the database channel!**")
         
