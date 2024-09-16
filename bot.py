@@ -36,10 +36,10 @@ async def handle_video(client, message):
         )
 
         # Check if the message was successfully uploaded
-        if uploaded_message and uploaded_message.link:
-            # Get the automatically generated share link
-            file_store_link = uploaded_message.link
-
+        if uploaded_message:
+            # Retrieve the "share URL" format from the bot message
+            file_store_link = f"https://telegram.me/share/url?url=https://t.me/{client.me.username}?start=get-{uploaded_message.id}"
+            
             # Create buttons with the file store link
             buttons = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
