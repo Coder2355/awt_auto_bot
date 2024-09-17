@@ -1,7 +1,5 @@
 import os
-import re
 import base64
-from pyrogram.errors import RPCError
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_CHANNEL_ID, TARGET_CHANNEL_ID, DB_CHANNEL, FILE_STORE_BOT_USERNAME
@@ -36,10 +34,12 @@ async def handle_video(client, message):
         
         # After uploading, construct the exact link
         if uploaded_message:
-            msg_id = uploaded_message.id  # Get the message ID from uploaded message
-            base64_string = base64.urlsafe_b64encode(f"get-{msg_id}".encode()).decode().rstrip("=")
-            file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start={base64_string}"
+            msg_id = uploaded_message.message_id  # Get the message ID from uploaded message
             
+            # Directly use the message ID for generating the link, no need for complex encoding
+            file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{msg_id}"
+            
+            # Add the link to the button
             buttons = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
             )
