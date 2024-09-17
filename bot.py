@@ -21,6 +21,7 @@ async def handle_video(client, message):
         quality = "720p"
         new_filename = f"{anime_name}_Episode_{episode_number}_{quality}.mp4"
         video_path = await message.download(file_name=new_filename)
+        
         await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
         await status_message.edit_text("📤 **Uploading video to database channel...**")
         
@@ -32,19 +33,20 @@ async def handle_video(client, message):
             caption=f"Renamed Video: {new_filename}",
         )
         
-        # After uploading, construct the exact link
+        # After uploading, generate the file store link
         if uploaded_message:
-            msg_id = uploaded_message.message_id  # Get the message ID from uploaded message
+            file_id = uploaded_message.id  # Get the message ID from uploaded message
             
-            # Directly use the message ID for generating the link, no need for complex encoding
-            file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start=get-{msg_id}"
+            # Construct the encoded link
+            base64_string = base64.b64encode(f"get-{file_id}".encode()).decode()
+            file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start={base64_string}"
             
-            # Add the link to the button
             buttons = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
             )
             
             try:
+                # Send the anime episode to the target channel with the generated link
                 if thumbnail_path and os.path.exists(thumbnail_path):
                     await app.send_photo(
                         chat_id=TARGET_CHANNEL_ID,
@@ -57,7 +59,7 @@ async def handle_video(client, message):
                         chat_id=TARGET_CHANNEL_ID,
                         text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
                         reply_markup=buttons
-                    )
+        )
                 
                 await status_message.edit_text("✅ **Process completed successfully!**")
             except Exception as e:
