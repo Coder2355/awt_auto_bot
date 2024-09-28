@@ -12,11 +12,14 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "7444872585:AAHYzPX_gygFh9xYvu0-k7YOUg7BSG_hz
 ADMINS = int(os.getenv("ADMINS", "6299192020"))
 FILE_STORE_BOT_USERNAME = "Thhiiyxvvh_bot"
 # Channel details
-DB_CHANNEL = int(os.getenv("DB_CHANNEL", "-1002134913785"))  # ID of the channel where files are stored
-FILE_STORE_CHANNEL_ID = int(os.getenv("FILE_STORE_CHANNEL_ID", "-1002183423252"))  # ID of the source channel where videos are sent
-TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID", "-1002245327685"))  # ID of the target channel where posts are published
+FILE_STORE_CHANNEL = int(os.getenv("FILE_STORE_CHANNEL", "-1002234974607"))  # ID of the channel where files are stored
+SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL", "-1002183423252"))  # ID of the source channel where videos are sent
+TARGET_CHANNEL = int(os.getenv("TARGET_CHANNEL", "-1002245327685"))  # ID of the target channel where posts are published
 TEMP_DIR = "downloads"  # Directory to store temporarily downloaded files
 # Make sure that your environment variables (or hardcoded values) are correct.
 
 DB_URI = "mongodb+srv://Speedwolf1:speedwolf24689@cluster0.rgfywsf.mongodb.net/"
 DB_NAME = "Speedwolf1"
+
+THUMBNAIL_PATH = 'thumbnail.jpg'
+POSTER_PATH = 'poster.jpg'
