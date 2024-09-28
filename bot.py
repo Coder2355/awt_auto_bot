@@ -1,91 +1,84 @@
 import os
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_CHANNEL_ID, TARGET_CHANNEL_ID, DB_CHANNEL, FILE_STORE_BOT_USERNAME
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import re
+from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_CHANNEL
 
-# Initialize the bot
-app = Client("auto_anime_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+bot = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# Global variable to store the thumbnail path
-thumbnail_path = None
+# Store to handle saving the thumbnail/poster
+thumbnail_poster_store = {}
 
-@app.on_message(filters.channel & filters.document)
+# Function to generate buttons for different quality options
+def generate_quality_buttons(file_id):
+    buttons = [
+        [InlineKeyboardButton("480p", url=f"https://t.me/{bot.username}?start=download_480p_{file_id}")],
+        [InlineKeyboardButton("720p", url=f"https://t.me/{bot.username}?start=download_720p_{file_id}")],
+        [InlineKeyboardButton("1080p", url=f"https://t.me/{bot.username}?start=download_1080p_{file_id}")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+# Extract anime name, episode number, and quality from the file name
+def parse_anime_info(filename):
+    match = re.match(r"(.*)[._ ](Ep\d+)[._ ](\d{3,4}p)", filename, re.IGNORECASE)
+    if match:
+        return match.group(1), match.group(2), match.group(3)
+    return None, None, None
+
+# Event handler for receiving video or document in source channel
+@bot.on_message(filters.channel & (filters.video | filters.document) & filters.chat(SOURCE_CHANNEL))
 async def handle_video(client, message):
-    global thumbnail_path
+    media = message.video or message.document
+    anime_name, episode_num, quality = parse_anime_info(media.file_name)
+    
+    if anime_name and episode_num and quality:
+        # Send status message for downloading
+        status_message = await message.reply_text("Downloading the video...")
 
-    if message.chat.id == FILE_STORE_CHANNEL_ID:
-        status_message = await message.reply_text("📥 **Downloading video file...**")
-        anime_name = "Anime_Name"
-        episode_number = "01"
-        quality = "720p"
-        new_filename = f"{anime_name}_Episode_{episode_number}_{quality}.mp4"
+        # Download the file
+        download_path = await message.download()
+
+        # Update status message to indicate download completion
+        await status_message.edit_text("Download complete. Renaming and uploading...")
+
+        # Rename the file based on the detected information
+        new_filename = f"{anime_name} {episode_num} {quality}.mp4"
+        new_file_path = f"./downloads/{new_filename}"
+        os.rename(download_path, new_file_path)
+
+        # Upload the renamed video to file store channel
+        sent_message = await bot.send_video(FILE_STORE_CHANNEL, video=new_file_path, thumb=THUMBNAIL_PATH, caption=new_filename)
+        file_id = sent_message.video.file_id
         
-        # Download the video file
-        video_path = await message.download(file_name=new_filename)
-        await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
-        await status_message.edit_text("📤 **Uploading video to database channel...**")
-        
-        # Upload the renamed file to the database (file store bot)
-        uploaded_message = await app.send_document(
-            chat_id=DB_CHANNEL,
-            document=video_path,
-            thumb=thumbnail_path if thumbnail_path else None,
-            caption=f"Renamed Video: {new_filename}",
-        )
-        
-        # After uploading, construct the file link
-        if uploaded_message:
-            # Use the file_id from the document, not the message ID
-            file_id = uploaded_message.document.file_id  # Get the file_id from the uploaded message's document
-            bot_username = FILE_STORE_BOT_USERNAME  # Use the file store bot's username from config
-            
-            # Construct the exact link for the button (the format depends on your file store bot)
-            file_store_link = f"https://t.me/{bot_username}?start={file_id}"
-            
-            buttons = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
-            )
-            
-            # Try sending the message with the thumbnail and buttons to the target channel
-            try:
-                if thumbnail_path and os.path.exists(thumbnail_path):
-                    await app.send_photo(
-                        chat_id=TARGET_CHANNEL_ID,
-                        photo=thumbnail_path,
-                        caption=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-                        reply_markup=buttons
-                    )
-                else:
-                    await app.send_message(
-                        chat_id=TARGET_CHANNEL_ID,
-                        text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
-                        reply_markup=buttons
-                    )
-                
-                await status_message.edit_text("✅ **Process completed successfully!**")
-            except Exception as e:
-                await status_message.edit_text(f"❌ **Failed to send message:** {str(e)}")
-        else:
-            await status_message.edit_text("❌ **Failed to upload the file to the database channel!**")
-        
-        # Remove the local file after processing
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        
-# Function to handle picture upload for thumbnail and poster image
-@app.on_message(filters.photo)
+        # Generate file link
+        file_link = f"https://t.me/{FILE_STORE_CHANNEL}/{sent_message.message_id}"
+
+        # Send the post with the video and buttons to the target channel
+        caption = f"{anime_name} - {episode_num}\nQuality: {quality}\n[Download]({file_link})"
+        buttons = generate_quality_buttons(file_id)
+        await bot.send_photo(TARGET_CHANNEL, photo=POSTER_PATH, caption=caption, reply_markup=buttons)
+
+        # Update status message to indicate upload completion
+        await status_message.edit_text("Upload complete.")
+
+        # Clean up downloaded file
+        os.remove(new_file_path)
+
+    else:
+        await message.reply_text("Could not detect anime name, episode number, or quality from the file name.")
+
+# Event handler for receiving pictures (to be used as thumbnail and poster)
+@bot.on_message(filters.channel & filters.photo)
 async def handle_thumbnail(client, message):
-    global thumbnail_path
+    thumbnail_poster_path = await message.download(file_name="thumbnail_poster.jpg")
+    
+    global THUMBNAIL_PATH, POSTER_PATH
+    THUMBNAIL_PATH = thumbnail_poster_path
+    POSTER_PATH = thumbnail_poster_path
 
-    # Download the thumbnail image
-    thumbnail_path = await message.download()
+    await message.reply_text("Thumbnail and poster image saved successfully!")
 
-    # Send a confirmation message
-    await message.reply_text("Thumbnail and poster image added successfully ✅")
-
-# Optional progress callback to show download/upload progress
-async def progress_callback(current, total):
-    print(f"Progress: {current * 100 / total:.1f}%")
-
-# Run the bot
-app.run()
+# Start the bot
+bot.start()
+print("Bot is running...")
+bot.idle()
