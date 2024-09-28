@@ -27,7 +27,6 @@ def parse_anime_info(filename):
         quality = match.group(3)
         return anime_name, episode_num, quality
     return None, None, None
-
 # Event handler for receiving video or document in source channel
 @bot.on_message(filters.channel & (filters.video | filters.document) & filters.chat(SOURCE_CHANNEL))
 async def handle_video(client, message):
@@ -51,7 +50,9 @@ async def handle_video(client, message):
 
         # Upload the renamed video to the file store channel
         sent_message = await bot.send_video(FILE_STORE_CHANNEL, video=new_file_path, thumb=THUMBNAIL_PATH, caption=new_filename)
-        file_id = sent_message.message_id
+        
+        # Access the message ID correctly
+        file_id = sent_message.id  # Correctly accessing the message ID here
         
         # Generate bot link for the user to download via the bot
         file_link = f"https://t.me/{bot.username}?start={file_id}"
