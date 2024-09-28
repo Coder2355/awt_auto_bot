@@ -89,3 +89,4 @@ async def handle_thumbnail(client, message):
 # Start the bot
 bot.start()
 print("Bot is running...")
+bot.run()
