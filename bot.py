@@ -18,11 +18,18 @@ def generate_quality_buttons(file_id):
     ]
     return InlineKeyboardMarkup(buttons)
 
-# Extract anime name, episode number, and quality from the file name
 def parse_anime_info(filename):
-    match = re.match(r"(.*)[._ ](Ep\d+)[._ ](\d{3,4}p)", filename, re.IGNORECASE)
+    # Regex pattern breakdown:
+    # (.*?): Matches the anime name (non-greedy) before the episode number.
+    # (Ep[\d]{1,4}): Matches "Ep" followed by 1 to 4 digits (episode number).
+    # (\d{3,4}p): Matches the quality as 3 or 4 digits followed by 'p' (e.g., 480p, 720p, 1080p).
+    match = re.search(r"(.*?)[._ ](Ep[\d]{1,4})[._ ](\d{3,4}p)", filename, re.IGNORECASE)
+    
     if match:
-        return match.group(1), match.group(2), match.group(3)
+        anime_name = match.group(1).replace('.', ' ').replace('_', ' ').strip()
+        episode_num = match.group(2)
+        quality = match.group(3)
+        return anime_name, episode_num, quality
     return None, None, None
 
 # Event handler for receiving video or document in source channel
