@@ -27,6 +27,7 @@ def parse_anime_info(filename):
         quality = match.group(3)
         return anime_name, episode_num, quality
     return None, None, None
+
 # Event handler for receiving video or document in source channel
 @bot.on_message(filters.channel & (filters.video | filters.document) & filters.chat(SOURCE_CHANNEL))
 async def handle_video(client, message):
@@ -54,8 +55,12 @@ async def handle_video(client, message):
         # Access the message ID correctly
         file_id = sent_message.id  # Correctly accessing the message ID here
         
+        # Get bot info to retrieve its username
+        bot_info = await client.get_me()
+        bot_username = bot_info.username
+
         # Generate bot link for the user to download via the bot
-        file_link = f"https://t.me/{bot.username}?start={file_id}"
+        file_link = f"https://t.me/{bot_username}?start={file_id}"
 
         # Send the post with the video and buttons to the target channel
         caption = f"{anime_name} - {episode_num}\nQuality: {quality}\n[Download]({file_link})"
@@ -70,7 +75,6 @@ async def handle_video(client, message):
 
     else:
         await message.reply_text("Could not detect anime name, episode number, or quality from the file name.")
-
 # Event handler for receiving pictures (to be used as thumbnail and poster)
 @bot.on_message(filters.channel & filters.photo)
 async def handle_thumbnail(client, message):
