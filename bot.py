@@ -9,14 +9,13 @@ bot = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_
 # Store to handle saving the thumbnail/poster
 thumbnail_poster_store = {}
 
-# Function to generate buttons for different quality options
-def generate_quality_buttons(file_id):
-    buttons = [
-        [InlineKeyboardButton("480p", url=f"https://t.me/{bot.username}?start=download_480p_{file_id}")],
-        [InlineKeyboardButton("720p", url=f"https://t.me/{bot.username}?start=download_720p_{file_id}")],
-        [InlineKeyboardButton("1080p", url=f"https://t.me/{bot.username}?start=download_1080p_{file_id}")]
-    ]
-    return InlineKeyboardMarkup(buttons)
+# Function to generate inline buttons with different quality options
+def generate_quality_buttons(file_id, bot_username):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("480p", url=f"https://t.me/{bot_username}?start=download_480p_{file_id}")],
+        [InlineKeyboardButton("720p", url=f"https://t.me/{bot_username}?start=download_720p_{file_id}")],
+        [InlineKeyboardButton("1080p", url=f"https://t.me/{bot_username}?start=download_1080p_{file_id}")],
+    ])
 
 # Extract anime name, episode number, and quality from the file name
 def parse_anime_info(filename):
@@ -28,6 +27,7 @@ def parse_anime_info(filename):
         return anime_name, episode_num, quality
     return None, None, None
 
+# Event handler for receiving video or document in source channel
 # Event handler for receiving video or document in source channel
 @bot.on_message(filters.channel & (filters.video | filters.document) & filters.chat(SOURCE_CHANNEL))
 async def handle_video(client, message):
@@ -53,7 +53,7 @@ async def handle_video(client, message):
         sent_message = await bot.send_video(FILE_STORE_CHANNEL, video=new_file_path, thumb=THUMBNAIL_PATH, caption=new_filename)
         
         # Access the message ID correctly
-        file_id = sent_message.id  # Correctly accessing the message ID here
+        file_id = sent_message.id
         
         # Get bot info to retrieve its username
         bot_info = await client.get_me()
@@ -64,7 +64,7 @@ async def handle_video(client, message):
 
         # Send the post with the video and buttons to the target channel
         caption = f"{anime_name} - {episode_num}\nQuality: {quality}\n[Download]({file_link})"
-        buttons = generate_quality_buttons(file_id)
+        buttons = generate_quality_buttons(file_id, bot_username)
         await bot.send_photo(TARGET_CHANNEL, photo=POSTER_PATH, caption=caption, reply_markup=buttons)
 
         # Update status message to indicate upload completion
@@ -75,7 +75,7 @@ async def handle_video(client, message):
 
     else:
         await message.reply_text("Could not detect anime name, episode number, or quality from the file name.")
-# Event handler for receiving pictures (to be used as thumbnail and poster)
+
 @bot.on_message(filters.channel & filters.photo)
 async def handle_thumbnail(client, message):
     thumbnail_poster_path = await message.download(file_name="thumbnail_poster.jpg")
