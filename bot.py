@@ -1,4 +1,4 @@
-import os
+import osimport os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
@@ -18,6 +18,7 @@ def generate_quality_buttons(file_id):
     ]
     return InlineKeyboardMarkup(buttons)
 
+# Extract anime name, episode number, and quality from the file name
 def parse_anime_info(filename):
     # Regex pattern breakdown:
     # (.*?): Matches the anime name (non-greedy) before the episode number.
@@ -86,5 +87,5 @@ async def handle_thumbnail(client, message):
     await message.reply_text("Thumbnail and poster image saved successfully!")
 
 # Start the bot
-bot.run()
+bot.start()
 print("Bot is running...")
