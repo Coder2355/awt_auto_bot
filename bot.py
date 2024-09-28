@@ -79,6 +79,5 @@ async def handle_thumbnail(client, message):
     await message.reply_text("Thumbnail and poster image saved successfully!")
 
 # Start the bot
-bot.start()
+bot.run()
 print("Bot is running...")
-bot.idle()
