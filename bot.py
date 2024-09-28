@@ -35,10 +35,11 @@ async def handle_video(client, message):
         
         # After uploading, construct the file link
         if uploaded_message:
-            file_id = uploaded_message.id  # Get the message ID from the uploaded message
+            # Use the file_id from the document, not the message ID
+            file_id = uploaded_message.document.file_id  # Get the file_id from the uploaded message's document
             bot_username = FILE_STORE_BOT_USERNAME  # Use the file store bot's username from config
             
-            # Construct the exact link for the button
+            # Construct the exact link for the button (the format depends on your file store bot)
             file_store_link = f"https://t.me/{bot_username}?start={file_id}"
             
             buttons = InlineKeyboardMarkup(
