@@ -1,5 +1,4 @@
 import os
-import base64
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config import API_ID, API_HASH, BOT_TOKEN, FILE_STORE_CHANNEL_ID, TARGET_CHANNEL_ID, DB_CHANNEL, FILE_STORE_BOT_USERNAME
@@ -20,12 +19,13 @@ async def handle_video(client, message):
         episode_number = "01"
         quality = "720p"
         new_filename = f"{anime_name}_Episode_{episode_number}_{quality}.mp4"
-        video_path = await message.download(file_name=new_filename)
         
+        # Download the video file
+        video_path = await message.download(file_name=new_filename)
         await status_message.edit_text("✅ **Video downloaded! Renaming file...**")
         await status_message.edit_text("📤 **Uploading video to database channel...**")
         
-        # Upload the file to the database (file store bot)
+        # Upload the renamed file to the database (file store bot)
         uploaded_message = await app.send_document(
             chat_id=DB_CHANNEL,
             document=video_path,
@@ -33,20 +33,20 @@ async def handle_video(client, message):
             caption=f"Renamed Video: {new_filename}",
         )
         
-        # After uploading, generate the file store link
+        # After uploading, construct the file link
         if uploaded_message:
-            file_id = uploaded_message.id  # Get the message ID from uploaded message
+            file_id = uploaded_message.id  # Get the message ID from the uploaded message
+            bot_username = FILE_STORE_BOT_USERNAME  # Use the file store bot's username from config
             
-            # Construct the encoded link
-            base64_string = base64.b64encode(f"get-{file_id}".encode()).decode()
-            file_store_link = f"https://t.me/{FILE_STORE_BOT_USERNAME}?start={base64_string}"
+            # Construct the exact link for the button
+            file_store_link = f"https://t.me/{bot_username}?start={file_id}"
             
             buttons = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("📥 Get File", url=file_store_link)]]
             )
             
+            # Try sending the message with the thumbnail and buttons to the target channel
             try:
-                # Send the anime episode to the target channel with the generated link
                 if thumbnail_path and os.path.exists(thumbnail_path):
                     await app.send_photo(
                         chat_id=TARGET_CHANNEL_ID,
@@ -59,7 +59,7 @@ async def handle_video(client, message):
                         chat_id=TARGET_CHANNEL_ID,
                         text=f"New Anime Episode: {anime_name} - Episode {episode_number} [{quality}]",
                         reply_markup=buttons
-        )
+                    )
                 
                 await status_message.edit_text("✅ **Process completed successfully!**")
             except Exception as e:
@@ -70,7 +70,7 @@ async def handle_video(client, message):
         # Remove the local file after processing
         if os.path.exists(video_path):
             os.remove(video_path)
-
+        
 # Function to handle picture upload for thumbnail and poster image
 @app.on_message(filters.photo)
 async def handle_thumbnail(client, message):
