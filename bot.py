@@ -2,7 +2,7 @@ import os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
-from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_CHANNEL
+from config import API_ID, API_HASH, BOT_TOKEN, SOURCE_CHANNEL, TARGET_CHANNEL, FILE_STORE_CHANNEL, FORCE_SUB_CHANNEL
 
 bot = Client("auto_upload_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -20,12 +20,7 @@ def generate_quality_buttons(file_id):
 
 # Extract anime name, episode number, and quality from the file name
 def parse_anime_info(filename):
-    # Regex pattern breakdown:
-    # (.*?): Matches the anime name (non-greedy) before the episode number.
-    # (Ep[\d]{1,4}): Matches "Ep" followed by 1 to 4 digits (episode number).
-    # (\d{3,4}p): Matches the quality as 3 or 4 digits followed by 'p' (e.g., 480p, 720p, 1080p).
     match = re.search(r"(.*?)[._ ](Ep[\d]{1,4})[._ ](\d{3,4}p)", filename, re.IGNORECASE)
-    
     if match:
         anime_name = match.group(1).replace('.', ' ').replace('_', ' ').strip()
         episode_num = match.group(2)
@@ -38,7 +33,7 @@ def parse_anime_info(filename):
 async def handle_video(client, message):
     media = message.video or message.document
     anime_name, episode_num, quality = parse_anime_info(media.file_name)
-    
+
     if anime_name and episode_num and quality:
         # Send status message for downloading
         status_message = await message.reply_text("Downloading the video...")
@@ -54,12 +49,12 @@ async def handle_video(client, message):
         new_file_path = f"./downloads/{new_filename}"
         os.rename(download_path, new_file_path)
 
-        # Upload the renamed video to file store channel
+        # Upload the renamed video to the file store channel
         sent_message = await bot.send_video(FILE_STORE_CHANNEL, video=new_file_path, thumb=THUMBNAIL_PATH, caption=new_filename)
-        file_id = sent_message.video.file_id
+        file_id = sent_message.message_id
         
-        # Generate file link
-        file_link = f"https://t.me/{FILE_STORE_CHANNEL}/{sent_message.message_id}"
+        # Generate bot link for the user to download via the bot
+        file_link = f"https://t.me/{bot.username}?start={file_id}"
 
         # Send the post with the video and buttons to the target channel
         caption = f"{anime_name} - {episode_num}\nQuality: {quality}\n[Download]({file_link})"
@@ -85,6 +80,52 @@ async def handle_thumbnail(client, message):
     POSTER_PATH = thumbnail_poster_path
 
     await message.reply_text("Thumbnail and poster image saved successfully!")
+
+# Event handler when the user clicks the bot-generated link to download the video
+@bot.on_message(filters.command("start"))
+async def start(client, message):
+    # Check if the user clicked the bot link with a file_id parameter
+    if len(message.command) > 1:
+        file_id = message.command[1]
+
+        # Check if the user is subscribed to the forced subscribe channel
+        user = await bot.get_chat_member(FORCE_SUB_CHANNEL, message.from_user.id)
+
+        if user.status not in ["member", "administrator", "creator"]:
+            # User is not subscribed, send force subscribe message
+            await message.reply(
+                "You must join our channel to download this file.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL}")],
+                     [InlineKeyboardButton("Try Again", callback_data=f"try_again_{file_id}")]]
+                )
+            )
+        else:
+            # User is subscribed, send the file
+            await bot.forward_messages(
+                chat_id=message.chat.id, 
+                from_chat_id=FILE_STORE_CHANNEL, 
+                message_ids=int(file_id)
+            )
+
+# Callback handler for the "Try Again" button after subscription
+@bot.on_callback_query(filters.regex(r"try_again_(\d+)"))
+async def try_again_callback(client, callback_query):
+    file_id = callback_query.matches[0].group(1)
+
+    # Check if the user is subscribed to the forced subscribe channel
+    user = await bot.get_chat_member(FORCE_SUB_CHANNEL, callback_query.from_user.id)
+
+    if user.status not in ["member", "administrator", "creator"]:
+        await callback_query.answer("You are still not subscribed. Please join the channel first.", show_alert=True)
+    else:
+        # User is subscribed, send the file
+        await bot.forward_messages(
+            chat_id=callback_query.from_user.id, 
+            from_chat_id=FILE_STORE_CHANNEL, 
+            message_ids=int(file_id)
+        )
+        await callback_query.answer("Here is your file!")
 
 # Start the bot
 bot.run()
